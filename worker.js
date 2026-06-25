@@ -1568,7 +1568,7 @@ body {
     // Sources table
     if (sources.length) {
       html += '<div class="tab-panel" id="panel-sources">';
-      html += '<p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:1rem;">Each source\\\'s contribution to server request duration, with callback counts.</p>';
+      html += '<p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:1rem;">Each source&#39;s contribution to server request duration, with callback counts.</p>';
       html += renderSourcesTable(sources, durationMs);
       html += '</div>';
     }
@@ -1768,18 +1768,22 @@ body {
           } else if (hCall.status >= 400) {
             hStatusCls = ' http-error';
           }
-          var hDotCls = 'http-fast';
-          if (hCall.duration_ms >= 500) {
-            hDotCls = 'http-slow';
-          } else if (hCall.duration_ms >= 100) {
-            hDotCls = 'http-medium';
+          var hDotColor = '';
+          if (hCall.is_error || (hCall.status && hCall.status >= 400)) {
+            hDotColor = '#c44337';
+          } else if (hCall.status >= 300) {
+            hDotColor = '#dba617';
+          } else if (hCall.source_name) {
+            hDotColor = getSourceColor(hCall.source_name, hCall.source_type || 'unknown');
+          } else {
+            hDotColor = '#50575e';
           }
           var hTitle = (hCall.method || 'GET') + ' ' + (hCall.url || '') + '\\n' + hDurMs + ' ms';
           if (hCall.status) hTitle += ' \u2014 HTTP ' + hCall.status;
           if (hCall.caller) hTitle += '\\n' + hCall.caller;
           html += '<div class="http-lollipop' + hStatusCls + '" style="left:' + hLeftPct + '%;height:' + hStemHeight + 'px" title="' + escAttr(hTitle) + '">';
           html += '<span class="http-stem"></span>';
-          html += '<span class="http-dot ' + hDotCls + '"></span>';
+          html += '<span class="http-dot" style="background:' + hDotColor + '"></span>';
           html += '<span class="http-label">' + escHtml(truncateHost(hHost, 24)) + ' <em>' + hDurMs + 'ms</em></span>';
           html += '</div>';
         }
