@@ -640,7 +640,7 @@ body {
 /* Metric cards */
 .metrics {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(5, 1fr);
   gap: 1rem;
   margin-bottom: 1.5rem;
 }
@@ -799,7 +799,70 @@ body {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 1.5rem;
-  overflow: hidden;
+  overflow: visible;
+}
+.timeline-zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+  font-size: 0.8rem;
+}
+.timeline-zoom-controls button {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 4px;
+  width: 28px;
+  height: 28px;
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.timeline-zoom-controls button:hover {
+  background: var(--border);
+}
+.timeline-zoom-level {
+  font-family: var(--mono);
+  color: var(--text-muted);
+  min-width: 28px;
+  text-align: center;
+}
+.timeline-zoom-hint {
+  color: var(--text-dim);
+  font-size: 0.7rem;
+  margin-left: 8px;
+}
+.timeline-viewport {
+  overflow-x: auto;
+  overflow-y: visible;
+  position: relative;
+}
+.timeline-zoom-wrapper {
+  min-width: 100%;
+  position: relative;
+  transform-origin: left top;
+}
+.timeline-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 12px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.timeline-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.timeline-legend-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
 }
 .milestones {
   position: relative;
@@ -1500,9 +1563,9 @@ body {
     const enqueuedAssets = report.enqueued_assets || null;
 
     const durationMs = (summary.duration_ns || 0) / 1e6;
-    const memoryMb = (summary.peak_memory_bytes || 0) / (1024 * 1024);
+    const memoryMb = (summary.memory_peak || 0) / (1024 * 1024);
     const queryCount = summary.query_count || 0;
-    const callbackCount = summary.total_callbacks || 0;
+    const callbackCount = summary.callback_count || 0;
 
     // Request info
     html += '<div class="request-info">';
@@ -1552,7 +1615,7 @@ body {
     // Timeline
     if (timeline.length || milestones.length) {
       html += '<div class="tab-panel' + (tabs[0]?.id === 'timeline' ? ' active' : '') + '" id="panel-timeline">';
-      html += renderTimeline(timeline, milestones, durationMs, httpCalls, queries);
+      html += renderTimeline(timeline, milestones, durationMs, httpCalls, queries, sources);
       html += '</div>';
     }
 
@@ -1642,6 +1705,80 @@ body {
         switchTab(btn.dataset.tab);
       });
     }
+
+    // Zoom/pan controls for timeline.
+    (function() {
+      var wrapper = document.querySelector('.timeline-zoom-wrapper');
+      var viewport = document.querySelector('.timeline-viewport');
+      var zoomIn = document.querySelector('.zoom-in-btn');
+      var zoomOut = document.querySelector('.zoom-out-btn');
+      var zoomReset = document.querySelector('.zoom-reset-btn');
+      var zoomLabel = document.querySelector('.timeline-zoom-level');
+      if (!wrapper || !viewport) return;
+
+      var zoom = 1;
+      var maxZoom = 10;
+
+      function applyZoom() {
+        wrapper.style.width = (zoom * 100) + '%';
+        if (zoomLabel) zoomLabel.textContent = zoom.toFixed(zoom >= 2 ? 0 : 1) + 'x';
+      }
+
+      if (zoomIn) zoomIn.addEventListener('click', function() {
+        zoom = Math.min(zoom * 1.5, maxZoom);
+        applyZoom();
+      });
+      if (zoomOut) zoomOut.addEventListener('click', function() {
+        zoom = Math.max(zoom / 1.5, 1);
+        applyZoom();
+      });
+      if (zoomReset) zoomReset.addEventListener('click', function() {
+        zoom = 1;
+        applyZoom();
+        viewport.scrollLeft = 0;
+      });
+
+      // Scroll-to-zoom.
+      viewport.addEventListener('wheel', function(e) {
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          var rect = viewport.getBoundingClientRect();
+          var mouseX = e.clientX - rect.left + viewport.scrollLeft;
+          var oldZoom = zoom;
+          if (e.deltaY < 0) {
+            zoom = Math.min(zoom * 1.15, maxZoom);
+          } else {
+            zoom = Math.max(zoom / 1.15, 1);
+          }
+          applyZoom();
+          // Keep point under cursor stable.
+          var newScrollLeft = mouseX * (zoom / oldZoom) - (e.clientX - rect.left);
+          viewport.scrollLeft = Math.max(0, newScrollLeft);
+        }
+      }, { passive: false });
+
+      // Drag to pan.
+      var dragging = false;
+      var startX = 0;
+      var startScroll = 0;
+      viewport.addEventListener('mousedown', function(e) {
+        if (zoom <= 1) return;
+        dragging = true;
+        startX = e.clientX;
+        startScroll = viewport.scrollLeft;
+        viewport.style.cursor = 'grabbing';
+        e.preventDefault();
+      });
+      document.addEventListener('mousemove', function(e) {
+        if (!dragging) return;
+        viewport.scrollLeft = startScroll - (e.clientX - startX);
+      });
+      document.addEventListener('mouseup', function() {
+        if (!dragging) return;
+        dragging = false;
+        viewport.style.cursor = '';
+      });
+    })();
   }
 
   // Tab switching
@@ -1657,11 +1794,24 @@ body {
       (sub ? '<div class="sub">' + escHtml(sub) + '</div>' : '') + '</div>';
   }
 
-  function renderTimeline(timeline, milestones, totalMs, httpCalls, queries) {
+  function renderTimeline(timeline, milestones, totalMs, httpCalls, queries, sources) {
     if (!totalMs) return '<p style="color:var(--text-muted)">No timeline data.</p>';
 
     var durationNs = totalMs * 1e6;
     var html = '<div class="timeline-container">';
+
+    // Zoom controls.
+    html += '<div class="timeline-zoom-controls">';
+    html += '<button type="button" class="zoom-out-btn" title="Zoom out">&minus;</button>';
+    html += '<span class="timeline-zoom-level">1&times;</span>';
+    html += '<button type="button" class="zoom-in-btn" title="Zoom in">+</button>';
+    html += '<button type="button" style="width:auto;padding:0 10px" class="zoom-reset-btn" title="Reset zoom">Reset</button>';
+    html += '<span class="timeline-zoom-hint">Scroll to zoom &middot; Drag to pan</span>';
+    html += '</div>';
+
+    // Scrollable viewport.
+    html += '<div class="timeline-viewport">';
+    html += '<div class="timeline-zoom-wrapper">';
 
     // Phase milestones — lollipop stems above the bar.
     var labelPositions = [];
@@ -1874,6 +2024,21 @@ body {
         html += '<span class="memory-sparkline-label">' + escHtml(memLabel) + '</span>';
         html += '</div>';
       }
+    }
+
+    html += '</div>'; // timeline-zoom-wrapper
+    html += '</div>'; // timeline-viewport
+
+    // Legend — show all sources present in the timeline.
+    if (sources && sources.length > 0) {
+      html += '<div class="timeline-legend">';
+      var legendSorted = [...sources].sort(function(a, b) { return (b.exclusive_ms || 0) - (a.exclusive_ms || 0); });
+      legendSorted.forEach(function(src) {
+        var color = getSourceColor(src.source || src.name || '', src.type || 'unknown');
+        html += '<div class="timeline-legend-item"><div class="timeline-legend-swatch" style="background:' + color + '"></div>' +
+          escHtml(src.source || src.name) + '</div>';
+      });
+      html += '</div>';
     }
 
     // I/O summary counts below timeline.
