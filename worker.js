@@ -548,9 +548,10 @@ body {
 .theme-toggle:hover { border-color: var(--text-muted); }
 
 .container {
-  max-width: 1100px;
+  max-width: 900px;
   margin: 0 auto;
-  padding: 1.5rem;
+  padding: 0 1.5rem;
+  overflow-x: hidden;
 }
 
 /* Guidance banner */
@@ -798,72 +799,192 @@ body {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 1.5rem;
-  overflow-x: auto;
+  overflow: hidden;
 }
-.timeline-bar-area {
+.milestones {
   position: relative;
-  height: 48px;
-  margin-bottom: 1rem;
+  width: 100%;
 }
-.timeline-segment {
+.milestone {
   position: absolute;
-  height: 28px;
-  top: 10px;
-  border-radius: 3px;
+  bottom: 0;
+  transform: translateX(-50%);
+}
+.milestone-stem {
+  display: block;
+  width: 1px;
+  height: 100%;
+  background: var(--border);
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+}
+.milestone-dot {
+  display: block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.milestone-label {
+  display: block;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  text-align: center;
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--mono);
+}
+.timeline-bar {
+  position: relative;
+  height: 32px;
+  background: var(--bg);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.timeline-bar .segment {
+  position: absolute;
+  top: 0;
+  height: 100%;
   min-width: 1px;
   cursor: default;
 }
-.timeline-segment:hover { opacity: 0.85; }
-.timeline-segment .tooltip {
-  display: none;
-  position: absolute;
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  background: #000;
-  color: #fff;
-  padding: 0.3rem 0.6rem;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  white-space: nowrap;
-  z-index: 10;
-  margin-bottom: 4px;
-  pointer-events: none;
-}
-.timeline-segment:hover .tooltip { display: block; }
-.timeline-milestone {
-  position: absolute;
-  top: 0;
-  width: 1px;
-  height: 100%;
-  opacity: 0.6;
-}
-.timeline-milestone .dot {
-  position: absolute;
-  top: -4px;
-  left: -4px;
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: var(--text-muted);
-  border: 1px solid var(--bg-card);
-}
-.timeline-milestone .label {
-  position: absolute;
-  top: -22px;
-  left: 4px;
-  font-size: 0.65rem;
-  color: var(--text-dim);
-  white-space: nowrap;
-  font-family: var(--mono);
+.timeline-bar .segment:hover {
+  opacity: 0.8;
 }
 .timeline-axis {
-  display: flex;
-  justify-content: space-between;
+  position: relative;
+  height: 18px;
+  margin-top: 4px;
   font-size: 0.7rem;
   color: var(--text-dim);
   font-family: var(--mono);
-  margin-top: 0.25rem;
+}
+.timeline-axis .tick {
+  position: absolute;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+.timeline-axis .tick:first-child {
+  transform: none;
+}
+.timeline-axis .tick:last-child {
+  transform: translateX(-100%);
+}
+
+/* HTTP lollipops below bar */
+.http-lollipops {
+  position: relative;
+  width: 100%;
+  margin-top: 2px;
+}
+.http-lollipop {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+}
+.http-stem {
+  display: block;
+  width: 1px;
+  height: calc(100% - 24px);
+  background: var(--border);
+  position: absolute;
+  top: 0;
+  left: 50%;
+}
+.http-dot {
+  display: block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.http-dot.http-fast { background: #27ae60; }
+.http-dot.http-medium { background: #e67e22; }
+.http-dot.http-slow { background: #e74c3c; }
+.http-label {
+  display: block;
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.http-label em {
+  font-style: normal;
+  color: var(--text-muted);
+}
+.http-lollipop.http-error .http-stem { background: #e74c3c; }
+
+/* Query density */
+.query-density-wrap {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  margin-top: 6px;
+}
+.density-label {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+  padding-bottom: 1px;
+  font-family: var(--mono);
+}
+.query-density {
+  display: flex;
+  align-items: flex-end;
+  height: 16px;
+  flex: 1;
+  gap: 1px;
+  border-radius: 2px;
+  overflow: hidden;
+}
+.density-bar {
+  flex: 1;
+  min-height: 0;
+  border-radius: 1px;
+}
+.density-bar.density-none { background: transparent; }
+.density-bar.density-normal { background: #c3c4c7; }
+.density-bar.density-medium { background: #dba617; }
+.density-bar.density-slow { background: #d63638; }
+
+/* Memory sparkline */
+.memory-sparkline-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+.memory-sparkline {
+  flex: 1;
+  height: 28px;
+  position: relative;
+}
+.memory-sparkline-svg {
+  width: 100%;
+  height: 100%;
+}
+.memory-sparkline-label {
+  font-size: 0.65rem;
+  color: #e67e22;
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-family: var(--mono);
 }
 
 /* Legend */
@@ -885,6 +1006,17 @@ body {
   height: 12px;
   border-radius: 3px;
   flex-shrink: 0;
+}
+
+/* Source pill for assets */
+.asset-source-pill {
+  display: inline-block;
+  font-size: 0.7rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+  margin-right: 0.35rem;
+  color: #fff;
+  font-weight: 500;
 }
 
 /* Diagnostics */
@@ -1037,6 +1169,31 @@ body {
     unknown: '#fbbf24',
     unattributed: '#475569',
   };
+
+  // Per-source color palette — gives each plugin/theme a unique color.
+  var pluginPalette = [
+    '#2271b1', '#e67e22', '#9b59b6', '#27ae60', '#e74c3c',
+    '#3498db', '#f39c12', '#1abc9c', '#e91e63', '#00bcd4',
+    '#8bc34a', '#ff5722', '#607d8b', '#795548', '#9c27b0'
+  ];
+  var pluginColorMap = {};
+  var colorIndex = 0;
+
+  function getSourceColor(slug, type) {
+    if (type === 'unattributed') return SOURCE_COLORS.unattributed || '#475569';
+    if (type === 'unknown' || slug === 'unknown') return SOURCE_COLORS.unknown;
+    var key = type + ':' + slug;
+    if (!pluginColorMap[key]) {
+      pluginColorMap[key] = pluginPalette[colorIndex % pluginPalette.length];
+      colorIndex++;
+    }
+    return pluginColorMap[key];
+  }
+
+  function truncateHost(str, max) {
+    if (!str || str.length <= max) return str || '';
+    return str.substring(0, max - 1) + '\u2026';
+  }
 
   // Theme
   function toggleTheme() {
@@ -1305,6 +1462,10 @@ body {
 
   // Render the full report
   function renderReport(report, meta) {
+    // Reset per-source color assignments for this report.
+    pluginColorMap = {};
+    colorIndex = 0;
+
     const guidanceDismissed = localStorage.getItem('scrutinizer-guidance-dismissed');
 
     let html = '';
@@ -1391,7 +1552,7 @@ body {
     // Timeline
     if (timeline.length || milestones.length) {
       html += '<div class="tab-panel' + (tabs[0]?.id === 'timeline' ? ' active' : '') + '" id="panel-timeline">';
-      html += renderTimeline(timeline, milestones, durationMs);
+      html += renderTimeline(timeline, milestones, durationMs, httpCalls, queries);
       html += '</div>';
     }
 
@@ -1496,47 +1657,244 @@ body {
       (sub ? '<div class="sub">' + escHtml(sub) + '</div>' : '') + '</div>';
   }
 
-  function renderTimeline(timeline, milestones, totalMs) {
+  function renderTimeline(timeline, milestones, totalMs, httpCalls, queries) {
     if (!totalMs) return '<p style="color:var(--text-muted)">No timeline data.</p>';
 
-    let html = '<div class="timeline-container"><div class="timeline-bar-area">';
+    var durationNs = totalMs * 1e6;
+    var html = '<div class="timeline-container">';
 
-    // Segments
-    timeline.forEach(item => {
-      const left = ((item.offset_ms || 0) / totalMs * 100).toFixed(3);
-      const width = Math.max(0.1, (item.duration_ms || 0) / totalMs * 100).toFixed(3);
-      const color = SOURCE_COLORS[item.source_type] || SOURCE_COLORS.unknown;
-      html += '<div class="timeline-segment" style="left:' + left + '%;width:' + width + '%;background:' + color + '">' +
-        '<div class="tooltip">' + escHtml(item.callback || item.source || '') + ' · ' + formatMs(item.duration_ms || 0) + '</div></div>';
-    });
+    // Phase milestones — lollipop stems above the bar.
+    var labelPositions = [];
+    for (var m = 0; m < milestones.length; m++) {
+      var marker = milestones[m];
+      var markerPct = (marker.offset_ms / totalMs) * 100;
+      if (markerPct > 100) markerPct = 100;
+      labelPositions.push({ pct: markerPct, name: marker.label || marker.hook || '' });
+    }
+    // Assign tiers to prevent horizontal label overlap.
+    var labelTiers = [];
+    for (var li = 0; li < labelPositions.length; li++) {
+      var tier = 0;
+      for (var lj = 0; lj < li; lj++) {
+        if (Math.abs(labelPositions[li].pct - labelPositions[lj].pct) < 8 && labelTiers[lj] >= tier) {
+          tier = labelTiers[lj] + 1;
+        }
+      }
+      labelTiers.push(tier);
+    }
+    var maxTier = 0;
+    for (var lt = 0; lt < labelTiers.length; lt++) {
+      if (labelTiers[lt] > maxTier) maxTier = labelTiers[lt];
+    }
+    var tierPx = 32;
+    var baseOffset = 20;
+    var milestoneHeight = labelPositions.length > 0 ? (maxTier + 1) * tierPx + baseOffset + 16 : 0;
 
-    // Milestones
-    milestones.forEach((m, i) => {
-      const left = ((m.offset_ms || 0) / totalMs * 100).toFixed(3);
-      const tierOffset = (i % 3) * 18;
-      html += '<div class="timeline-milestone" style="left:' + left + '%;background:var(--border)">' +
-        '<div class="dot"></div>' +
-        '<div class="label" style="top:' + (-22 - tierOffset) + 'px">' + escHtml(m.label || m.hook || '') + '</div></div>';
-    });
+    if (labelPositions.length > 0) {
+      html += '<div class="milestones" style="height:' + milestoneHeight + 'px">';
+      for (var lk = 0; lk < labelPositions.length; lk++) {
+        var stemHeight = (labelTiers[lk] + 1) * tierPx + baseOffset;
+        var leftPct = labelPositions[lk].pct.toFixed(2);
+        html += '<div class="milestone" style="left:' + leftPct + '%;height:' + stemHeight + 'px">';
+        html += '<span class="milestone-label">' + escHtml(labelPositions[lk].name) + '</span>';
+        html += '<span class="milestone-dot"></span>';
+        html += '<span class="milestone-stem"></span>';
+        html += '</div>';
+      }
+      html += '</div>';
+    }
 
-    html += '</div>'; // timeline-bar-area
+    // Timeline bar.
+    html += '<div class="timeline-bar">';
+    for (var i = 0; i < timeline.length; i++) {
+      var seg = timeline[i];
+      var segPctW = seg.pct_width || ((seg.duration_ms || 0) / totalMs * 100);
+      var segPctS = seg.pct_start != null ? seg.pct_start : ((seg.offset_ms || 0) / totalMs * 100);
+      if (segPctW < 0.05) continue;
+      var segColor = getSourceColor(seg.source || '', seg.source_type || 'unknown');
+      var segTitle = escAttr((seg.callback || seg.source || '') + ' \u00b7 ' + formatMs(seg.duration_ms || 0));
+      html += '<div class="segment" style="left:' + segPctS.toFixed(3) + '%;width:' + Math.max(segPctW, 0.15).toFixed(3) + '%;background:' + segColor + '" title="' + segTitle + '"></div>';
+    }
+    html += '</div>';
 
-    // Axis
-    html += '<div class="timeline-axis"><span>0 ms</span><span>' + formatMs(totalMs) + '</span></div>';
+    // Time axis — 5 evenly spaced ticks.
+    html += '<div class="timeline-axis">';
+    var tickCount = 5;
+    for (var k = 0; k <= tickCount; k++) {
+      var tickMs = (totalMs * k / tickCount).toFixed(0);
+      var tickPct = (k / tickCount) * 100;
+      html += '<span class="tick" style="left:' + tickPct + '%">' + tickMs + ' ms</span>';
+    }
+    html += '</div>';
+
+    // HTTP call lollipops — below the bar (inverted stems).
+    if (httpCalls && httpCalls.length > 0) {
+      var httpPositions = [];
+      for (var hi = 0; hi < httpCalls.length; hi++) {
+        var hc = httpCalls[hi];
+        var hPct = hc.offset_ms != null ? (hc.offset_ms / totalMs) * 100 : -1;
+        if (hPct < 0 || hPct > 100) continue;
+        httpPositions.push({ pct: hPct, call: hc });
+      }
+      if (httpPositions.length > 0) {
+        var httpTiers = [];
+        for (var hti = 0; hti < httpPositions.length; hti++) {
+          var hTier = 0;
+          for (var htj = 0; htj < hti; htj++) {
+            if (Math.abs(httpPositions[hti].pct - httpPositions[htj].pct) < 8 && httpTiers[htj] >= hTier) {
+              hTier = httpTiers[htj] + 1;
+            }
+          }
+          httpTiers.push(hTier);
+        }
+        var httpMaxTier = 0;
+        for (var hmt = 0; hmt < httpTiers.length; hmt++) {
+          if (httpTiers[hmt] > httpMaxTier) httpMaxTier = httpTiers[hmt];
+        }
+        var httpTierPx = 32;
+        var httpBaseOffset = 20;
+        var httpHeight = (httpMaxTier + 1) * httpTierPx + httpBaseOffset + 16;
+        html += '<div class="http-lollipops" style="height:' + httpHeight + 'px">';
+        for (var hlk = 0; hlk < httpPositions.length; hlk++) {
+          var hStemHeight = (httpTiers[hlk] + 1) * httpTierPx + httpBaseOffset;
+          var hLeftPct = httpPositions[hlk].pct.toFixed(2);
+          var hCall = httpPositions[hlk].call;
+          var hDurMs = (hCall.duration_ms || 0).toFixed(0);
+          var hHost = '';
+          try { hHost = new URL(hCall.url).hostname; } catch(e) { hHost = hCall.url || ''; }
+          var hStatusCls = '';
+          if (hCall.is_error) {
+            hStatusCls = ' http-error';
+          } else if (hCall.status >= 400) {
+            hStatusCls = ' http-error';
+          }
+          var hDotCls = 'http-fast';
+          if (hCall.duration_ms >= 500) {
+            hDotCls = 'http-slow';
+          } else if (hCall.duration_ms >= 100) {
+            hDotCls = 'http-medium';
+          }
+          var hTitle = (hCall.method || 'GET') + ' ' + (hCall.url || '') + '\\n' + hDurMs + ' ms';
+          if (hCall.status) hTitle += ' \u2014 HTTP ' + hCall.status;
+          if (hCall.caller) hTitle += '\\n' + hCall.caller;
+          html += '<div class="http-lollipop' + hStatusCls + '" style="left:' + hLeftPct + '%;height:' + hStemHeight + 'px" title="' + escAttr(hTitle) + '">';
+          html += '<span class="http-stem"></span>';
+          html += '<span class="http-dot ' + hDotCls + '"></span>';
+          html += '<span class="http-label">' + escHtml(truncateHost(hHost, 24)) + ' <em>' + hDurMs + 'ms</em></span>';
+          html += '</div>';
+        }
+        html += '</div>';
+      }
+    }
+
+    // Query density strip — thin heatmap showing where queries cluster.
+    var timelineQueries = [];
+    if (queries && queries.length > 0) {
+      for (var qi = 0; qi < queries.length; qi++) {
+        if (queries[qi].offset_ms != null) {
+          timelineQueries.push(queries[qi]);
+        }
+      }
+    }
+    if (timelineQueries.length > 0) {
+      var bucketCount = 60;
+      var buckets = [];
+      var bucketMaxMs = [];
+      for (var bi = 0; bi < bucketCount; bi++) {
+        buckets.push(0);
+        bucketMaxMs.push(0);
+      }
+      for (var tqi = 0; tqi < timelineQueries.length; tqi++) {
+        var bIdx = Math.floor((timelineQueries[tqi].offset_ms / totalMs) * bucketCount);
+        if (bIdx >= bucketCount) bIdx = bucketCount - 1;
+        if (bIdx < 0) bIdx = 0;
+        buckets[bIdx]++;
+        var tqMs = timelineQueries[tqi].time_ms || 0;
+        if (tqMs > bucketMaxMs[bIdx]) bucketMaxMs[bIdx] = tqMs;
+      }
+      var maxCount = 1;
+      for (var mc = 0; mc < buckets.length; mc++) {
+        if (buckets[mc] > maxCount) maxCount = buckets[mc];
+      }
+      html += '<div class="query-density-wrap">';
+      html += '<span class="density-label">Queries</span>';
+      html += '<div class="query-density">';
+      for (var db = 0; db < bucketCount; db++) {
+        var fillPct = (buckets[db] / maxCount) * 100;
+        var barCls = 'density-none';
+        if (buckets[db] > 0) {
+          barCls = 'density-normal';
+          if (bucketMaxMs[db] >= 5) barCls = 'density-slow';
+          else if (bucketMaxMs[db] >= 1) barCls = 'density-medium';
+        }
+        var dTitle = buckets[db] > 0 ? buckets[db] + ' quer' + (buckets[db] === 1 ? 'y' : 'ies') + ', slowest ' + bucketMaxMs[db].toFixed(1) + ' ms' : '';
+        html += '<div class="density-bar ' + barCls + '" style="height:' + Math.max(fillPct, buckets[db] > 0 ? 20 : 0) + '%" title="' + escAttr(dTitle) + '"></div>';
+      }
+      html += '</div>';
+      html += '</div>';
+    }
+
+    // Memory usage sparkline — SVG line synced to the timeline width.
+    var memPoints = [];
+    for (var mi = 0; mi < timeline.length; mi++) {
+      var memVal = timeline[mi].mem_after || 0;
+      if (memVal > 0) {
+        var memPctX = (timeline[mi].pct_start || 0) + (timeline[mi].pct_width || 0);
+        memPoints.push({ pct: memPctX, mem: memVal });
+      }
+    }
+    if (memPoints.length >= 2) {
+      var memMin = memPoints[0].mem;
+      var memMax = memPoints[0].mem;
+      for (var mm = 1; mm < memPoints.length; mm++) {
+        if (memPoints[mm].mem < memMin) memMin = memPoints[mm].mem;
+        if (memPoints[mm].mem > memMax) memMax = memPoints[mm].mem;
+      }
+      var memRange = memMax - memMin;
+      if (memRange > memMax * 0.01) {
+        var svgH = 28;
+        var pathD = '';
+        for (var mp = 0; mp < memPoints.length; mp++) {
+          var sx = memPoints[mp].pct;
+          var sy = svgH - 2 - ((memPoints[mp].mem - memMin) / memRange) * (svgH - 4);
+          pathD += (mp === 0 ? 'M' : 'L') + sx + ',' + sy.toFixed(1) + ' ';
+        }
+        var memLabel = formatBytes(memMax) + ' peak';
+        html += '<div class="memory-sparkline-wrap">';
+        html += '<span class="density-label">Memory</span>';
+        html += '<div class="memory-sparkline">';
+        html += '<svg viewBox="0 0 100 ' + svgH + '" preserveAspectRatio="none" class="memory-sparkline-svg">';
+        html += '<path d="' + pathD + '" fill="none" stroke="#e67e22" stroke-width="1.5" vector-effect="non-scaling-stroke"/>';
+        html += '</svg>';
+        html += '</div>';
+        html += '<span class="memory-sparkline-label">' + escHtml(memLabel) + '</span>';
+        html += '</div>';
+      }
+    }
+
+    // I/O summary counts below timeline.
+    var queryCount = queries ? queries.length : 0;
+    var httpCount = httpCalls ? httpCalls.length : 0;
+    if (queryCount > 0 || httpCount > 0) {
+      var parts = [];
+      if (queryCount > 0) parts.push(queryCount + ' quer' + (queryCount === 1 ? 'y' : 'ies'));
+      if (httpCount > 0) parts.push(httpCount + ' HTTP call' + (httpCount === 1 ? '' : 's'));
+      html += '<div style="font-size:0.8rem;color:var(--text-dim);margin-top:8px;text-align:center">' + parts.join(' \u00b7 ') + '</div>';
+    }
+
     html += '</div>'; // timeline-container
-
     return html;
   }
 
   function renderBreakdownBar(sources, totalMs) {
     if (!totalMs) return '';
-    const sorted = [...sources].sort((a, b) => (b.exclusive_ms || 0) - (a.exclusive_ms || 0));
+    var sorted = [...sources].sort(function(a, b) { return (b.exclusive_ms || 0) - (a.exclusive_ms || 0); });
 
-    let html = '<div class="breakdown-bar">';
-    sorted.forEach(src => {
-      const pct = ((src.exclusive_ms || 0) / totalMs * 100).toFixed(2);
+    var html = '<div class="breakdown-bar">';
+    sorted.forEach(function(src) {
+      var pct = ((src.exclusive_ms || 0) / totalMs * 100).toFixed(2);
       if (parseFloat(pct) < 0.1) return;
-      const color = SOURCE_COLORS[src.type] || SOURCE_COLORS.unknown;
+      var color = getSourceColor(src.source || src.name || '', src.type || 'unknown');
       html += '<div class="breakdown-segment" style="width:' + pct + '%;background:' + color + '">' +
         '<div class="tooltip">' + escHtml(src.source || src.name) + ': ' + formatMs(src.exclusive_ms || 0) + ' (' + pct + '%)</div></div>';
     });
@@ -1545,10 +1903,10 @@ body {
   }
 
   function renderLegend(sources) {
-    const sorted = [...sources].sort((a, b) => (b.exclusive_ms || 0) - (a.exclusive_ms || 0));
-    let html = '<div class="legend">';
-    sorted.forEach(src => {
-      const color = SOURCE_COLORS[src.type] || SOURCE_COLORS.unknown;
+    var sorted = [...sources].sort(function(a, b) { return (b.exclusive_ms || 0) - (a.exclusive_ms || 0); });
+    var html = '<div class="legend">';
+    sorted.forEach(function(src) {
+      var color = getSourceColor(src.source || src.name || '', src.type || 'unknown');
       html += '<div class="legend-item"><div class="legend-swatch" style="background:' + color + '"></div>' +
         escHtml(src.source || src.name) + '</div>';
     });
@@ -1557,15 +1915,15 @@ body {
   }
 
   function renderSourcesTable(sources, totalMs) {
-    const sorted = [...sources].sort((a, b) => (b.exclusive_ms || 0) - (a.exclusive_ms || 0));
+    var sorted = [...sources].sort(function(a, b) { return (b.exclusive_ms || 0) - (a.exclusive_ms || 0); });
 
-    let html = '<table class="data-table"><thead><tr>' +
+    var html = '<table class="data-table"><thead><tr>' +
       '<th>Source</th><th>Type</th><th class="num">Exclusive</th><th class="num">%</th>' +
       '<th class="num">Inclusive</th><th class="num">Callbacks</th></tr></thead><tbody>';
 
-    sorted.forEach(src => {
-      const color = SOURCE_COLORS[src.type] || SOURCE_COLORS.unknown;
-      const pct = totalMs ? ((src.exclusive_ms || 0) / totalMs * 100).toFixed(1) : '—';
+    sorted.forEach(function(src) {
+      var color = getSourceColor(src.source || src.name || '', src.type || 'unknown');
+      var pct = totalMs ? ((src.exclusive_ms || 0) / totalMs * 100).toFixed(1) : '\u2014';
       html += '<tr><td>' +
         '<span class="source-badge" style="background:' + color + '22;color:' + color + '">' + escHtml(src.source || src.name) + '</span>' +
         '<div class="weight-bar" style="width:' + pct + '%;background:' + color + '"></div>' +
@@ -1732,29 +2090,40 @@ body {
   function renderEnqueuedAssets(assets) {
     if (!assets) return '<p style="color:var(--text-muted)">No enqueued assets data.</p>';
 
-    let html = '';
-    const scripts = assets.scripts || [];
-    const styles = assets.styles || [];
+    function assetRow(s) {
+      var sourcePill = '';
+      if (s.attribution && s.attribution.type && s.attribution.type !== 'unknown') {
+        var pillColor = getSourceColor(s.attribution.name || s.attribution.slug || '', s.attribution.type);
+        sourcePill = '<span class="asset-source-pill" style="background:' + pillColor + '">' + escHtml(s.attribution.name || s.attribution.slug || '') + '</span>';
+      }
+      var srcUrl = s.src || '';
+      var srcDisplay = srcUrl.replace(/^https?:\/\/[^\/]+/, '');
+      if (srcDisplay.length > 60) srcDisplay = srcDisplay.substring(0, 59) + '\u2026';
+      return '<tr><td>' + sourcePill + '<code class="mono">' + escHtml(s.handle || '') + '</code></td>' +
+        '<td class="mono" style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escAttr(srcUrl) + '">' + escHtml(srcDisplay) + '</td>' +
+        '<td class="num">' + (s.size > 0 ? formatBytes(s.size) : '<span style="color:var(--text-dim)">external</span>') + '</td>' +
+        '<td>' + escHtml(s.location || '') + '</td></tr>';
+    }
+
+    var html = '';
+    var scripts = assets.scripts || [];
+    var styles = assets.styles || [];
 
     if (scripts.length) {
       html += '<h3 style="font-size:0.85rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.75rem">Scripts (' + scripts.length + ')</h3>';
       html += '<table class="data-table">';
-      html += '<thead><tr><th>Handle</th><th>Source</th><th class="num">Size</th></tr></thead>';
+      html += '<thead><tr><th>Handle</th><th>Source</th><th class="num">Size</th><th>Location</th></tr></thead>';
       html += '<tbody>';
-      scripts.forEach(s => {
-        html += '<tr><td class="mono">' + escHtml(s.handle || '') + '</td><td>' + escHtml(s.source || '') + '</td><td class="num">' + formatBytes(s.size || 0) + '</td></tr>';
-      });
+      scripts.forEach(function(s) { html += assetRow(s); });
       html += '</tbody></table>';
     }
 
     if (styles.length) {
       html += '<h3 style="font-size:0.85rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;margin:1.5rem 0 0.75rem">Styles (' + styles.length + ')</h3>';
       html += '<table class="data-table">';
-      html += '<thead><tr><th>Handle</th><th>Source</th><th class="num">Size</th></tr></thead>';
+      html += '<thead><tr><th>Handle</th><th>Source</th><th class="num">Size</th><th>Location</th></tr></thead>';
       html += '<tbody>';
-      styles.forEach(s => {
-        html += '<tr><td class="mono">' + escHtml(s.handle || '') + '</td><td>' + escHtml(s.source || '') + '</td><td class="num">' + formatBytes(s.size || 0) + '</td></tr>';
-      });
+      styles.forEach(function(s) { html += assetRow(s); });
       html += '</tbody></table>';
     }
 
