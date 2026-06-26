@@ -548,10 +548,9 @@ body {
 .theme-toggle:hover { border-color: var(--text-muted); }
 
 .container {
-  max-width: 900px;
+  max-width: 960px;
   margin: 0 auto;
   padding: 0 1.5rem;
-  overflow-x: hidden;
 }
 
 /* Guidance banner */
@@ -791,6 +790,52 @@ body {
   min-width: 2px;
 }
 .data-table .slow { color: var(--red); }
+.data-table .warn { color: var(--amber); }
+.data-table tr.slow-row td { background: rgba(239,68,68,0.06); }
+
+/* Query enhancements */
+.queries-header { margin-bottom: 1rem; }
+.queries-summary { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem; }
+.queries-summary strong { color: var(--text-primary); }
+.duplicate-flag { color: var(--red); font-weight: 600; }
+
+.queries-sources { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.75rem; }
+.query-source-pill {
+  display: inline-block; padding: 0.2rem 0.6rem; border: none; border-radius: 4px;
+  font-size: 0.75rem; font-weight: 600; color: #fff; cursor: pointer;
+  transition: opacity 0.15s; font-family: var(--sans);
+}
+.query-source-pill:hover { opacity: 0.8; }
+
+.queries-toggle { display: inline-flex; border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+.toggle-btn {
+  padding: 0.3rem 0.8rem; border: none; background: var(--bg-card);
+  font-size: 0.75rem; color: var(--text-muted); cursor: pointer; font-family: var(--sans);
+}
+.toggle-btn + .toggle-btn { border-left: 1px solid var(--border); }
+.toggle-btn.active { background: var(--teal); color: #fff; }
+
+.query-filter-bar {
+  padding: 0.5rem 0.75rem; margin-bottom: 0.75rem; font-size: 0.8rem;
+  background: var(--bg-card); border: 1px solid var(--teal); border-radius: 4px;
+}
+.clear-filter { border: none; background: none; color: var(--red); cursor: pointer; font-size: 0.75rem; margin-left: 0.5rem; }
+
+.duplicate-badge {
+  display: inline-block; padding: 0.15rem 0.5rem; background: var(--red); color: #fff;
+  border-radius: 10px; font-size: 0.75rem; font-weight: 700;
+}
+
+.group-row { cursor: pointer; }
+.group-row:hover td { background: var(--bg-card-hover); }
+.group-detail { background: var(--bg-body); }
+.group-detail-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin: 0.5rem 0; }
+.group-detail-table th, .group-detail-table td { padding: 0.3rem 0.5rem; border-bottom: 1px solid var(--border); text-align: left; }
+.group-detail-table th { font-size: 0.75rem; color: var(--text-muted); }
+
+.sql-expandable { cursor: pointer; }
+.sql-expandable:hover { color: var(--teal); }
+.sql-full { white-space: pre-wrap; word-break: break-all; font-size: 0.8rem; cursor: pointer; }
 
 /* Timeline */
 .timeline-container {
@@ -1706,6 +1751,80 @@ body {
       });
     }
 
+    // Query view interactions (delegated).
+    document.addEventListener('click', function(e) {
+      // Grouped/Individual toggle.
+      var togBtn = e.target.closest('.toggle-btn');
+      if (togBtn) {
+        var view = togBtn.dataset.view;
+        document.querySelectorAll('.toggle-btn').forEach(function(b) { b.classList.remove('active'); });
+        togBtn.classList.add('active');
+        document.querySelectorAll('.queries-view').forEach(function(v) { v.style.display = 'none'; });
+        var target = document.getElementById('queries-' + view);
+        if (target) target.style.display = '';
+        return;
+      }
+
+      // Expand grouped row.
+      var groupRow = e.target.closest('.group-row');
+      if (groupRow && !e.target.closest('.sql-expandable') && !e.target.closest('.sql-full')) {
+        var sql = groupRow.dataset.sql;
+        groupRow.classList.toggle('is-expanded');
+        document.querySelectorAll('.group-detail').forEach(function(d) {
+          if (d.dataset.sql === sql) d.style.display = d.style.display === 'none' ? '' : 'none';
+        });
+        return;
+      }
+
+      // Click-to-expand SQL.
+      var sqlExp = e.target.closest('.sql-expandable');
+      if (sqlExp) {
+        e.stopPropagation();
+        var full = sqlExp.parentElement.querySelector('.sql-full');
+        if (full) { sqlExp.style.display = 'none'; full.style.display = ''; }
+        return;
+      }
+      var sqlFull = e.target.closest('.sql-full');
+      if (sqlFull) {
+        e.stopPropagation();
+        var short = sqlFull.parentElement.querySelector('.sql-expandable');
+        if (short) { sqlFull.style.display = 'none'; short.style.display = ''; }
+        return;
+      }
+
+      // Source pill filter.
+      var pill = e.target.closest('.query-source-pill') || e.target.closest('.query-filter-pill');
+      if (pill) {
+        e.stopPropagation();
+        var src = pill.dataset.source;
+        var bar = document.querySelector('.query-filter-bar');
+        if (bar) { bar.style.display = ''; bar.querySelector('.filter-source-name').textContent = src; }
+        document.querySelectorAll('.query-ind-row').forEach(function(r) {
+          r.style.display = r.dataset.source === src ? '' : 'none';
+        });
+        document.querySelectorAll('.group-row').forEach(function(r) {
+          var pills = r.querySelectorAll('.source-badge');
+          var match = false;
+          pills.forEach(function(p) { if (p.textContent.trim() === src) match = true; });
+          r.style.display = match ? '' : 'none';
+          var sql2 = r.dataset.sql;
+          document.querySelectorAll('.group-detail').forEach(function(d) {
+            if (d.dataset.sql === sql2) d.style.display = match ? 'none' : 'none';
+          });
+        });
+        return;
+      }
+
+      // Clear filter.
+      if (e.target.closest('.clear-filter')) {
+        var bar2 = document.querySelector('.query-filter-bar');
+        if (bar2) bar2.style.display = 'none';
+        document.querySelectorAll('.query-ind-row, .group-row').forEach(function(r) { r.style.display = ''; });
+        document.querySelectorAll('.group-detail').forEach(function(d) { d.style.display = 'none'; });
+        return;
+      }
+    });
+
     // Zoom/pan controls for timeline.
     (function() {
       var wrapper = document.querySelector('.timeline-zoom-wrapper');
@@ -2109,6 +2228,117 @@ body {
   }
 
   function renderQueriesTable(queries) {
+    if (!queries || !queries.length) return '<p style="color:var(--text-muted)">No query data captured.</p>';
+
+    // Per-source summary
+    const bySrc = {};
+    let totalMs = 0;
+    queries.forEach(q => {
+      totalMs += q.time_ms || 0;
+      const sn = q.source || '\u2014';
+      const st = q.source_type || 'unknown';
+      if (!bySrc[sn]) bySrc[sn] = { name: sn, type: st, count: 0, time: 0 };
+      bySrc[sn].count++;
+      bySrc[sn].time += q.time_ms || 0;
+    });
+    const srcList = Object.values(bySrc).sort((a, b) => b.time - a.time);
+
+    // Group by SQL pattern
+    const groups = {};
+    const groupOrder = [];
+    queries.forEach(q => {
+      const key = q.sql || '';
+      if (!groups[key]) { groups[key] = { sql: key, items: [], totalMs: 0 }; groupOrder.push(key); }
+      groups[key].items.push(q);
+      groups[key].totalMs += q.time_ms || 0;
+    });
+    let dupCount = 0;
+    groupOrder.forEach(k => { if (groups[k].items.length > 1) dupCount++; });
+
+    let html = '<div class="queries-header">';
+    html += '<div class="queries-summary"><strong>' + queries.length + ' queries</strong> totaling <strong>' + formatMs(totalMs) + '</strong>';
+    if (dupCount > 0) html += ' &middot; <span class="duplicate-flag">' + dupCount + ' duplicate pattern' + (dupCount !== 1 ? 's' : '') + '</span>';
+    html += '</div>';
+
+    // Source pills
+    html += '<div class="queries-sources">';
+    srcList.forEach(s => {
+      const color = SOURCE_COLORS[s.type] || SOURCE_COLORS.unknown;
+      html += '<button type="button" class="query-source-pill" data-source="' + escAttr(s.name) + '" style="background:' + color + '">' +
+        escHtml(s.name) + ': ' + s.count + ' (' + formatMs(s.time) + ')</button>';
+    });
+    html += '</div>';
+
+    // Toggle
+    html += '<div class="queries-toggle">' +
+      '<button type="button" class="toggle-btn active" data-view="grouped">Grouped</button>' +
+      '<button type="button" class="toggle-btn" data-view="individual">Individual</button></div>';
+    html += '</div>';
+
+    // Filter bar (hidden)
+    html += '<div class="query-filter-bar" style="display:none">Showing queries from <strong class="filter-source-name"></strong> ' +
+      '<button type="button" class="clear-filter">\u2715 Clear</button></div>';
+
+    // Grouped view
+    html += '<div class="queries-view" id="queries-grouped">';
+    html += renderQueriesGrouped(groups, groupOrder);
+    html += '</div>';
+
+    // Individual view
+    html += '<div class="queries-view" id="queries-individual" style="display:none">';
+    html += renderQueriesIndividual(queries);
+    html += '</div>';
+
+    return html;
+  }
+
+  function renderQueriesGrouped(groups, groupOrder) {
+    const sorted = [...groupOrder].sort((a, b) => groups[b].totalMs - groups[a].totalMs);
+    let html = '<table class="data-table"><thead><tr><th>SQL Pattern</th><th class="num">Count</th><th class="num">Total</th><th class="num">Avg</th><th>Sources</th></tr></thead><tbody>';
+
+    sorted.forEach(key => {
+      const grp = groups[key];
+      const avg = grp.totalMs / grp.items.length;
+      const isDup = grp.items.length > 1;
+      const rowCls = grp.totalMs > 50 ? ' slow-row' : '';
+
+      // Unique sources
+      const srcs = {};
+      grp.items.forEach(q => { srcs[q.source || '\u2014'] = q.source_type || 'unknown'; });
+
+      html += '<tr class="group-row' + rowCls + '" data-sql="' + escAttr(grp.sql) + '">';
+      html += '<td class="mono"><span class="sql-expandable" title="Click to expand">' + escHtml(grp.sql.length > 120 ? grp.sql.substring(0, 120) + '...' : grp.sql) + '</span>';
+      if (grp.sql.length > 120) html += '<span class="sql-full" style="display:none">' + escHtml(grp.sql) + '</span>';
+      html += '</td>';
+      html += '<td class="num">' + (isDup ? '<span class="duplicate-badge">\u00d7' + grp.items.length + '</span>' : '1') + '</td>';
+      html += '<td class="num">' + formatMs(grp.totalMs) + '</td>';
+      html += '<td class="num">' + formatMs(avg) + '</td>';
+      html += '<td>';
+      Object.entries(srcs).forEach(([name, type]) => {
+        const color = SOURCE_COLORS[type] || SOURCE_COLORS.unknown;
+        html += '<span class="source-badge" style="background:' + color + '22;color:' + color + '">' + escHtml(name) + '</span> ';
+      });
+      html += '</td></tr>';
+
+      if (isDup) {
+        html += '<tr class="group-detail" data-sql="' + escAttr(grp.sql) + '" style="display:none"><td colspan="5">';
+        html += '<table class="group-detail-table"><thead><tr><th>#</th><th>Source</th><th>Time</th><th>Caller</th></tr></thead><tbody>';
+        grp.items.forEach((q, i) => {
+          const color = SOURCE_COLORS[q.source_type] || SOURCE_COLORS.unknown;
+          html += '<tr><td>' + (i + 1) + '</td>';
+          html += '<td><span class="source-badge" style="background:' + color + '22;color:' + color + '">' + escHtml(q.source || '\u2014') + '</span></td>';
+          html += '<td class="num">' + formatMs(q.time_ms || 0) + '</td>';
+          html += '<td class="mono" style="font-size:0.75rem;max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escAttr(q.caller || '') + '">' + escHtml(q.caller || '\u2014') + '</td></tr>';
+        });
+        html += '</tbody></table></td></tr>';
+      }
+    });
+
+    html += '</tbody></table>';
+    return html;
+  }
+
+  function renderQueriesIndividual(queries) {
     const sorted = [...queries].sort((a, b) => (b.time_ms || 0) - (a.time_ms || 0));
     const top = sorted.slice(0, 100);
 
@@ -2116,12 +2346,14 @@ body {
       '<th>Query</th><th class="num">Time</th><th>Source</th></tr></thead><tbody>';
 
     top.forEach(q => {
-      const slow = (q.time_ms || 0) > 10 ? ' slow' : '';
+      const rowCls = (q.time_ms || 0) > 50 ? ' slow-row' : '';
+      const timeCls = (q.time_ms || 0) > 50 ? ' slow' : ((q.time_ms || 0) > 10 ? ' warn' : '');
       const color = SOURCE_COLORS[q.source_type] || SOURCE_COLORS.unknown;
-      html += '<tr><td class="mono" style="max-width:600px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escAttr(q.sql || '') + '">' +
-        escHtml(q.sql || '') + '</td>' +
-        '<td class="num' + slow + '">' + formatMs(q.time_ms || 0) + '</td>' +
-        '<td>' + (q.source ? '<span class="source-badge" style="background:' + color + '22;color:' + color + '">' + escHtml(q.source) + '</span>' : '') + '</td></tr>';
+      html += '<tr class="query-ind-row' + rowCls + '" data-source="' + escAttr(q.source || '') + '">' +
+        '<td class="mono"><span class="sql-expandable" title="Click to expand">' + escHtml(q.sql && q.sql.length > 120 ? q.sql.substring(0, 120) + '...' : (q.sql || '')) + '</span>' +
+        (q.sql && q.sql.length > 120 ? '<span class="sql-full" style="display:none">' + escHtml(q.sql) + '</span>' : '') + '</td>' +
+        '<td class="num' + timeCls + '">' + formatMs(q.time_ms || 0) + '</td>' +
+        '<td>' + (q.source ? '<span class="source-badge query-filter-pill" data-source="' + escAttr(q.source) + '" style="cursor:pointer;background:' + color + '22;color:' + color + '">' + escHtml(q.source) + '</span>' : '') + '</td></tr>';
     });
 
     html += '</tbody></table>';
