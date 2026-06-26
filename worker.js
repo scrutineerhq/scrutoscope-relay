@@ -1082,6 +1082,15 @@ body {
   pointer-events: none;
   z-index: 2;
 }
+.memory-overlay-svg .memory-hit-area,
+.memory-overlay-svg .memory-line {
+  pointer-events: stroke;
+  cursor: help;
+}
+.memory-overlay-svg:hover .memory-line {
+  stroke: rgba(230, 126, 34, 1);
+  stroke-width: 2.5;
+}
 .memory-overlay-label {
   position: absolute;
   right: 4px;
@@ -2010,8 +2019,12 @@ body {
           pathD += (mp === 0 ? 'M' : 'L') + sx.toFixed(2) + ',' + sy.toFixed(1) + ' ';
         }
         var memLabel = formatBytes(memMax) + ' peak';
+        var memMinLabel = formatBytes(memMin);
+        var memTitle = 'Memory: ' + memMinLabel + ' &#x2192; ' + memLabel;
         html += '<svg class="memory-overlay-svg" viewBox="0 0 100 100" preserveAspectRatio="none">';
-        html += '<path d="' + pathD + '" fill="none" stroke="rgba(230,126,34,0.7)" stroke-width="2" vector-effect="non-scaling-stroke"/>';
+        html += '<title>' + escHtml(memTitle) + '</title>';
+        html += '<path d="' + pathD + '" fill="none" stroke="transparent" stroke-width="10" vector-effect="non-scaling-stroke" class="memory-hit-area"/>';
+        html += '<path d="' + pathD + '" fill="none" stroke="rgba(230,126,34,0.7)" stroke-width="2" vector-effect="non-scaling-stroke" class="memory-line"/>';
         html += '</svg>';
         html += '<span class="memory-overlay-label">' + escHtml(memLabel) + '</span>';
       }
