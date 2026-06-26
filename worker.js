@@ -10,7 +10,7 @@
  * - GET  /             → landing/redirect
  * 
  * R2 binding: REPORTS (scrutinizer-reports bucket) — report storage
- * KV binding: RATELIMIT — rate limiting counters
+ * DO binding: RATE_LIMITER — Durable Object rate limiting
  * 
  * Zero-knowledge: server stores only ciphertext + metadata.
  * Decryption key lives in URL fragment (#key), never sent to server.
@@ -26,9 +26,6 @@ const CORS_HEADERS = {
 const MAX_REPORT_SIZE = 10 * 1024 * 1024; // 10MB max ciphertext (R2 supports up to 5GB)
 const VALID_TTL_DAYS = [1, 7, 14, 30];
 const DEFAULT_TTL_DAYS = 7;
-const RATE_LIMIT_WINDOW = 60; // seconds
-const RATE_LIMIT_MAX_CREATE = 10; // max reports per IP per minute
-const RATE_LIMIT_MAX_READ = 60; // max data fetches per IP per minute
 
 export default {
   async fetch(request, env) {
@@ -84,6 +81,170 @@ export default {
     }
   }
 };
+
+// ─── Durable Object Rate Limiter ────────────────────────────────────
+//
+// In-memory sliding-window counters sharded by IP prefix.
+// Persisted to durable storage so counters survive DO eviction.
+// Alarm-based GC cleans expired windows every 60 seconds.
+
+const SK = 'w:';
+const GC_INTERVAL_MS = 60_000;
+const MAX_KEYS = 5_000;
+
+export class RateLimiterDO {
+  constructor(state) {
+    this.state = state;
+    this.windows = new Map();
+    this.hydrated = false;
+    this.state.storage.getAlarm().then((alarm) => {
+      if (!alarm) {
+        this.state.storage.setAlarm(Date.now() + GC_INTERVAL_MS);
+      }
+    });
+  }
+
+  async hydrate() {
+    if (this.hydrated) return;
+    const entries = await this.state.storage.list({ prefix: SK });
+    for (const [storageKey, timestamps] of entries) {
+      this.windows.set(storageKey.slice(SK.length), timestamps);
+    }
+    this.hydrated = true;
+  }
+
+  async fetch(request) {
+    const url = new URL(request.url);
+
+    if (url.pathname === '/check' && request.method === 'POST') {
+      try {
+        await this.hydrate();
+        const body = await request.json();
+        const result = this.checkLimit(body);
+        return new Response(JSON.stringify(result), {
+          headers: { 'Content-Type': 'application/json' },
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ error: err.message || 'DO internal error' }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
+    return new Response('Not found', { status: 404 });
+  }
+
+  async alarm() {
+    await this.hydrate();
+    this.gc();
+    this.state.storage.setAlarm(Date.now() + GC_INTERVAL_MS);
+  }
+
+  checkLimit({ ip, endpoint, limit, windowSecs }) {
+    const key = `${ip}:${endpoint}`;
+    const now = Math.floor(Date.now() / 1000);
+    const cutoff = now - windowSecs;
+
+    let timestamps = this.windows.get(key);
+
+    if (timestamps) {
+      const idx = this.bisectRight(timestamps, cutoff);
+      if (idx > 0) {
+        timestamps = timestamps.slice(idx);
+        if (timestamps.length === 0) {
+          this.windows.delete(key);
+          this.state.storage.delete(`${SK}${key}`);
+        } else {
+          this.windows.set(key, timestamps);
+        }
+      }
+    }
+
+    const count = timestamps?.length ?? 0;
+    const oldest = timestamps?.[0] ?? now;
+    const resetAt = oldest + windowSecs;
+
+    if (count >= limit) {
+      return { allowed: false, limit, remaining: 0, resetAt };
+    }
+
+    if (!timestamps) {
+      this.windows.set(key, [now]);
+    } else {
+      timestamps.push(now);
+    }
+    const val = this.windows.get(key);
+    if (val !== undefined) this.state.storage.put(`${SK}${key}`, val);
+    this.maybeEvictColdKeys();
+
+    const remaining = limit - count - 1;
+    return { allowed: true, limit, remaining: Math.max(0, remaining), resetAt };
+  }
+
+  bisectRight(arr, value) {
+    let lo = 0;
+    let hi = arr.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1;
+      if (arr[mid] <= value) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo;
+  }
+
+  gc() {
+    const now = Math.floor(Date.now() / 1000);
+    const cutoff = now - 7200;
+    const toDelete = [];
+    const toUpdate = {};
+
+    for (const [key, timestamps] of this.windows) {
+      if (timestamps.length === 0 || timestamps[timestamps.length - 1] <= cutoff) {
+        this.windows.delete(key);
+        toDelete.push(`${SK}${key}`);
+        continue;
+      }
+      const idx = this.bisectRight(timestamps, cutoff);
+      if (idx > 0) {
+        const trimmed = timestamps.slice(idx);
+        if (trimmed.length === 0) {
+          this.windows.delete(key);
+          toDelete.push(`${SK}${key}`);
+        } else {
+          this.windows.set(key, trimmed);
+          toUpdate[`${SK}${key}`] = trimmed;
+        }
+      }
+    }
+
+    if (toDelete.length > 0) {
+      this.state.storage.delete(toDelete);
+    }
+    if (Object.keys(toUpdate).length > 0) {
+      this.state.storage.put(toUpdate);
+    }
+  }
+
+  maybeEvictColdKeys() {
+    if (this.windows.size <= MAX_KEYS) return;
+    const entries = Array.from(this.windows.entries());
+    entries.sort((a, b) => {
+      const aLast = a[1][a[1].length - 1] ?? 0;
+      const bLast = b[1][b[1].length - 1] ?? 0;
+      return aLast - bLast;
+    });
+    const toEvict = Math.ceil(entries.length * 0.1);
+    const storageDeletes = [];
+    for (let i = 0; i < toEvict; i++) {
+      this.windows.delete(entries[i][0]);
+      storageDeletes.push(`${SK}${entries[i][0]}`);
+    }
+    if (storageDeletes.length > 0) {
+      this.state.storage.delete(storageDeletes);
+    }
+  }
+}
 
 /**
  * Landing page — Scrutineer branded, dark theme
@@ -187,7 +348,7 @@ function handleLanding() {
 async function handleCreate(request, env) {
   // Rate limit
   const ip = request.headers.get('cf-connecting-ip') || 'unknown';
-  const rateLimited = await checkRateLimit(env, `create:${ip}`, RATE_LIMIT_MAX_CREATE);
+  const rateLimited = await checkRateLimit(env, ip, 'create', 10, 60);
   if (rateLimited) {
     return jsonResponse({ error: 'Rate limit exceeded. Try again later.' }, 429);
   }
@@ -260,7 +421,7 @@ async function handleCreate(request, env) {
 async function handleGetData(id, request, env) {
   // Rate limit reads
   const ip = request.headers.get('cf-connecting-ip') || 'unknown';
-  const rateLimited = await checkRateLimit(env, `read:${ip}`, RATE_LIMIT_MAX_READ);
+  const rateLimited = await checkRateLimit(env, ip, 'read', 60, 60);
   if (rateLimited) {
     return jsonResponse({ error: 'Rate limit exceeded. Try again later.' }, 429);
   }
@@ -357,20 +518,39 @@ async function handleView(id, env) {
 }
 
 /**
- * Rate limiting via KV (sliding window approximation)
+ * Rate limiting via Durable Object (sliding window).
+ * Falls open on DO errors — relay stays available.
  */
-async function checkRateLimit(env, key, max) {
-  const rlKey = `ratelimit:${key}`;
-  const now = Math.floor(Date.now() / 1000);
-  const windowKey = `${rlKey}:${Math.floor(now / RATE_LIMIT_WINDOW)}`;
+const RATE_LIMITER_SHARD_COUNT = 16;
 
-  const current = parseInt(await env.RATELIMIT.get(windowKey) || '0', 10);
-  if (current >= max) {
-    return true; // rate limited
+function shardKeyFromIP(ip) {
+  // Simple hash: sum char codes, mod shard count
+  let hash = 0;
+  for (let i = 0; i < ip.length; i++) {
+    hash = ((hash << 5) - hash + ip.charCodeAt(i)) | 0;
   }
+  return `shard-${Math.abs(hash) % RATE_LIMITER_SHARD_COUNT}`;
+}
 
-  await env.RATELIMIT.put(windowKey, String(current + 1), { expirationTtl: RATE_LIMIT_WINDOW * 2 });
-  return false;
+async function checkRateLimit(env, ip, endpoint, limit, windowSecs) {
+  if (!env.RATE_LIMITER) return false; // no binding — fail open
+  try {
+    const shardKey = shardKeyFromIP(ip);
+    const doId = env.RATE_LIMITER.idFromName(shardKey);
+    const stub = env.RATE_LIMITER.get(doId);
+    const resp = await stub.fetch(
+      new Request('https://do/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ip, endpoint, limit, windowSecs }),
+      }),
+    );
+    if (!resp.ok) return false; // DO error — fail open
+    const result = await resp.json();
+    return !result.allowed;
+  } catch {
+    return false; // fail open
+  }
 }
 
 /**

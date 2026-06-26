@@ -6,6 +6,11 @@ compatibility_date = "2024-09-23"
 binding = "REPORTS"
 bucket_name = "scrutinizer-reports"
 
-[[kv_namespaces]]
-binding = "RATELIMIT"
-id = "8b73a76a19b6431985dfae054b31d057"
+[durable_objects]
+bindings = [
+  { name = "RATE_LIMITER", class_name = "RateLimiterDO" }
+]
+
+[[migrations]]
+tag = "v1"
+new_classes = ["RateLimiterDO"]
