@@ -23,6 +23,24 @@ const CORS_HEADERS = {
   'Access-Control-Max-Age': '86400',
 };
 
+
+const SECURITY_HEADERS = {
+  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload',
+  'Content-Security-Policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
+  'X-Frame-Options': 'DENY',
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+};
+
+function withSecurityHeaders(response) {
+  const resp = new Response(response.body, response);
+  for (const [k, v] of Object.entries(SECURITY_HEADERS)) {
+    resp.headers.set(k, v);
+  }
+  return resp;
+}
+
 const MAX_REPORT_SIZE = 10 * 1024 * 1024; // 10MB max ciphertext (R2 supports up to 5GB)
 const VALID_TTL_DAYS = [1, 7, 14, 30];
 const DEFAULT_TTL_DAYS = 7;
@@ -37,47 +55,58 @@ export default {
     const path = url.pathname;
 
     try {
+      // /.well-known/security.txt
+      if (path === '/.well-known/security.txt') {
+        return withSecurityHeaders(new Response(
+          'Contact: mailto:hello@scrutineer.dev\n' +
+          'Preferred-Languages: en\n' +
+          'Canonical: https://scrutinizer.dev/.well-known/security.txt\n' +
+          'Expires: 2027-06-26T00:00:00.000Z\n',
+          { headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=86400' } }
+        ));
+      }
+
       // Landing page
       if (path === '/' || path === '') {
-        return handleLanding();
+        return withSecurityHeaders(handleLanding());
       }
 
       // GET /view — file upload viewer (drop zone for local JSON exports)
       if (path === '/view' && request.method === 'GET') {
-        return handleFileViewer();
+        return withSecurityHeaders(handleFileViewer());
       }
 
       // POST /r/ — store encrypted report
       if (path === '/r/' && request.method === 'POST') {
-        return await handleCreate(request, env);
+        return withSecurityHeaders(await handleCreate(request, env));
       }
       // Also accept POST /r (no trailing slash)
       if (path === '/r' && request.method === 'POST') {
-        return await handleCreate(request, env);
+        return withSecurityHeaders(await handleCreate(request, env));
       }
 
       // GET /r/{id}/data — return ciphertext
       const dataMatch = path.match(/^\/r\/([a-f0-9]{32})\/data$/);
       if (dataMatch && request.method === 'GET') {
-        return await handleGetData(dataMatch[1], request, env);
+        return withSecurityHeaders(await handleGetData(dataMatch[1], request, env));
       }
 
       // DELETE /r/{id} — revoke report
       const deleteMatch = path.match(/^\/r\/([a-f0-9]{32})$/);
       if (deleteMatch && request.method === 'DELETE') {
-        return await handleDelete(deleteMatch[1], request, env);
+        return withSecurityHeaders(await handleDelete(deleteMatch[1], request, env));
       }
 
       // GET /r/{id} — serve SPA viewer
       const viewMatch = path.match(/^\/r\/([a-f0-9]{32})$/);
       if (viewMatch && request.method === 'GET') {
-        return await handleView(viewMatch[1], env);
+        return withSecurityHeaders(await handleView(viewMatch[1], env));
       }
 
-      return jsonResponse({ error: 'Not found' }, 404);
+      return withSecurityHeaders(jsonResponse({ error: 'Not found' }, 404));
     } catch (err) {
       console.error('Worker error:', err);
-      return jsonResponse({ error: 'Internal error' }, 500);
+      return withSecurityHeaders(jsonResponse({ error: 'Internal error' }, 500));
     }
   }
 };
@@ -257,6 +286,13 @@ function handleLanding() {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Scrutinizer Relay — Encrypted Report Sharing</title>
 <meta name="robots" content="noindex, nofollow">
+<meta property="og:title" content="Scrutinizer Relay">
+<meta property="og:description" content="Zero-knowledge encrypted report sharing for WordPress performance diagnostics.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://scrutinizer.dev">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Scrutinizer Relay">
+<meta name="twitter:description" content="Zero-knowledge encrypted report sharing for WordPress performance diagnostics.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -603,6 +639,13 @@ const VIEWER_HTML = `<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Scrutinizer Report</title>
 <meta name="robots" content="noindex, nofollow">
+<meta property="og:title" content="Scrutinizer Relay">
+<meta property="og:description" content="Zero-knowledge encrypted report sharing for WordPress performance diagnostics.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://scrutinizer.dev">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Scrutinizer Relay">
+<meta name="twitter:description" content="Zero-knowledge encrypted report sharing for WordPress performance diagnostics.">
 <meta name="report-id" content="{{REPORT_ID}}">
 <meta name="report-exists" content="{{REPORT_EXISTS}}">
 <meta name="viewer-mode" content="{{MODE}}">
