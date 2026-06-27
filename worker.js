@@ -570,7 +570,14 @@ const RATE_LIMITER_SHARD_COUNT = 16;
  * Returns first 16 hex chars — enough for uniqueness, not reversible.
  */
 async function hashIP(ip, env) {
-  const secret = (env && env.IP_HASH_SECRET) || 'scrutinizer-relay-default-salt';
+  // No hardcoded fallback salt: a known public salt makes the hash trivially
+  // reversible over the IPv4 space, defeating the GDPR pseudonymization claim.
+  // Without a configured secret we return null and let rate limiting fail open
+  // (it is not a security boundary — see D28), so no weakly-hashed IP exists.
+  const secret = env && env.IP_HASH_SECRET;
+  if (!secret) {
+    return null;
+  }
   const encoder = new TextEncoder();
   const key = await crypto.subtle.importKey(
     'raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
@@ -595,6 +602,7 @@ function shardKeyFromIP(hashedIp) {
 
 async function checkRateLimit(env, ip, endpoint, limit, windowSecs) {
   if (!env.RATE_LIMITER) return false; // no binding — fail open
+  if (!ip) return false; // no pseudonymized IP (IP_HASH_SECRET unset) — fail open
   try {
     const shardKey = shardKeyFromIP(ip);
     const doId = env.RATE_LIMITER.idFromName(shardKey);
@@ -1772,9 +1780,18 @@ body {
       writer.close();
       const reader = ds.readable.getReader();
       const chunks = [];
+      // Cap the decompressed size. A ~10MB ciphertext can gzip-expand to GBs;
+      // without a bound a crafted report would OOM the viewer tab.
+      const MAX_DECOMPRESSED = 64 * 1024 * 1024;
+      let decompressedBytes = 0;
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
+        decompressedBytes += value.length;
+        if (decompressedBytes > MAX_DECOMPRESSED) {
+          reader.cancel();
+          throw new Error('Report is too large to display.');
+        }
         chunks.push(value);
       }
       const totalLen = chunks.reduce(function(a, c) { return a + c.length; }, 0);
@@ -2557,8 +2574,10 @@ body {
   function renderQueriesTable(queries) {
     if (!queries || !queries.length) return '<p style="color:var(--text-muted)">No query data captured.</p>';
 
-    // Per-source summary
-    const bySrc = {};
+    // Per-source summary. Null-prototype map: source names come from the
+    // (attacker-authored) report, so keys like "__proto__" must not reach
+    // Object.prototype or abort rendering.
+    const bySrc = Object.create(null);
     let totalMs = 0;
     queries.forEach(q => {
       totalMs += q.time_ms || 0;
@@ -2570,8 +2589,8 @@ body {
     });
     const srcList = Object.values(bySrc).sort((a, b) => b.time - a.time);
 
-    // Group by SQL pattern
-    const groups = {};
+    // Group by SQL pattern (null-prototype: keys are report-controlled SQL).
+    const groups = Object.create(null);
     const groupOrder = [];
     queries.forEach(q => {
       const key = q.sql || '';
@@ -2693,8 +2712,8 @@ body {
   function renderTrace(trace) {
     let html = '<div class="trace-tree">';
 
-    // Group by phase if available
-    const phases = {};
+    // Group by phase if available (null-prototype: phase is report-controlled).
+    const phases = Object.create(null);
     trace.forEach(item => {
       const phase = item.phase || 'other';
       if (!phases[phase]) phases[phase] = [];
