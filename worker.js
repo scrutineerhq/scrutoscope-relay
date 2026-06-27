@@ -416,6 +416,16 @@ async function handleCreate(request, env) {
     return jsonResponse({ error: 'Rate limit exceeded. Try again later.' }, 429);
   }
 
+  // Reject obviously-bad uploads before buffering the whole body.
+  const contentType = request.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    return jsonResponse({ error: 'Content-Type must be application/json' }, 415);
+  }
+  const declaredLen = parseInt(request.headers.get('content-length') || '0', 10);
+  if (Number.isFinite(declaredLen) && declaredLen > MAX_REPORT_SIZE * 1.5) {
+    return jsonResponse({ error: `Report too large. Maximum ${MAX_REPORT_SIZE / 1024 / 1024}MB.` }, 413);
+  }
+
   // Parse body
   let body;
   try {
@@ -543,13 +553,34 @@ async function handleDelete(id, request, env) {
   }
 
   const meta = obj.customMetadata;
-  if (meta.revoke_token !== revokeToken) {
+  // Constant-time compare so a timing side-channel can't be used to recover
+  // the revoke token character by character.
+  if (!timingSafeEqual(meta.revoke_token || '', revokeToken)) {
     return jsonResponse({ error: 'Invalid revocation token.' }, 403);
   }
 
+  // Revocation is immediate: deleting the R2 object removes the only copy.
+  // No edge-cache purge is needed because every response that carries report
+  // content (this endpoint's /data and the viewer HTML) is served with
+  // Cache-Control: no-store, so nothing is ever held in a shared cache.
   await env.REPORTS.delete(`report:${id}`);
 
   return jsonResponse({ success: true, message: 'Report revoked.' }, 200);
+}
+
+/**
+ * Constant-time string comparison. The revoke token is a fixed-length 256-bit
+ * value, so comparing lengths first does not leak useful information.
+ */
+function timingSafeEqual(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) {
+    return false;
+  }
+  let mismatch = 0;
+  for (let i = 0; i < a.length; i++) {
+    mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return mismatch === 0;
 }
 
 /**
