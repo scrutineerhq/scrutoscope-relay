@@ -16,60 +16,18 @@
  * Decryption key lives in URL fragment (#key), never sent to server.
  */
 
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, X-Revoke-Token',
-  'Access-Control-Max-Age': '86400',
-};
-
-
-const SECURITY_HEADERS = {
-  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload',
-  'X-Frame-Options': 'DENY',
-  'X-Content-Type-Options': 'nosniff',
-  'Referrer-Policy': 'strict-origin-when-cross-origin',
-  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
-};
-
-// Build the CSP. The viewer is the only page with an inline <script>; it is
-// served with a per-response nonce so the script runs while 'unsafe-inline' is
-// dropped. Every other response has no script and falls back to script-src
-// 'none', so any unescaped report content is inert rather than executable.
-function buildCSP(scriptSrc) {
-  return "default-src 'none'; script-src " + scriptSrc +
-    "; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
-}
-
-// Generate a 128-bit base64 nonce for the viewer's inline <script>.
-function generateNonce() {
-  const bytes = new Uint8Array(16);
-  crypto.getRandomValues(bytes);
-  let bin = '';
-  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-  return btoa(bin);
-}
-
-function withSecurityHeaders(response) {
-  const resp = new Response(response.body, response);
-  for (const [k, v] of Object.entries(SECURITY_HEADERS)) {
-    resp.headers.set(k, v);
-  }
-  // A handler serving inline script passes its nonce via the internal
-  // X-CSP-Nonce header; promote it into the CSP and strip it from the response.
-  const nonce = resp.headers.get('X-CSP-Nonce');
-  if (nonce) {
-    resp.headers.delete('X-CSP-Nonce');
-    resp.headers.set('Content-Security-Policy', buildCSP("'nonce-" + nonce + "'"));
-  } else {
-    resp.headers.set('Content-Security-Policy', buildCSP("'none'"));
-  }
-  return resp;
-}
-
-const MAX_REPORT_SIZE = 10 * 1024 * 1024; // 10MB max ciphertext (R2 supports up to 5GB)
-const VALID_TTL_DAYS = [1, 7, 14, 30];
-const DEFAULT_TTL_DAYS = 7;
+import {
+  CORS_HEADERS,
+  MAX_REPORT_SIZE,
+  VALID_TTL_DAYS,
+  DEFAULT_TTL_DAYS,
+  generateNonce,
+  withSecurityHeaders,
+  timingSafeEqual,
+  hashIP,
+  shardKeyFromIP,
+  jsonResponse,
+} from './src/lib.js';
 
 export default {
   async fetch(request, env) {
@@ -609,21 +567,6 @@ async function handleDelete(id, request, env) {
 }
 
 /**
- * Constant-time string comparison. The revoke token is a fixed-length 256-bit
- * value, so comparing lengths first does not leak useful information.
- */
-function timingSafeEqual(a, b) {
-  if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) {
-    return false;
-  }
-  let mismatch = 0;
-  for (let i = 0; i < a.length; i++) {
-    mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  }
-  return mismatch === 0;
-}
-
-/**
  * GET /r/{id} — serve the SPA viewer
  */
 async function handleView(id, env) {
@@ -662,43 +605,6 @@ async function handleView(id, env) {
  * The hash is consistent per secret, so rate limiting works, but
  * the raw IP is never persisted in DO storage.
  */
-const RATE_LIMITER_SHARD_COUNT = 16;
-
-/**
- * HMAC-SHA256 hash an IP address for pseudonymous rate limiting.
- * Returns first 16 hex chars — enough for uniqueness, not reversible.
- */
-async function hashIP(ip, env) {
-  // No hardcoded fallback salt: a known public salt makes the hash trivially
-  // reversible over the IPv4 space, defeating the GDPR pseudonymization claim.
-  // Without a configured secret we return null and let rate limiting fail open
-  // (it is not a security boundary — see D28), so no weakly-hashed IP exists.
-  const secret = env && env.IP_HASH_SECRET;
-  if (!secret) {
-    return null;
-  }
-  const encoder = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    'raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
-  );
-  const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(ip));
-  const bytes = new Uint8Array(sig);
-  let hex = '';
-  for (let i = 0; i < 8; i++) {
-    hex += bytes[i].toString(16).padStart(2, '0');
-  }
-  return hex;
-}
-
-function shardKeyFromIP(hashedIp) {
-  // IP is already HMAC-hashed at this point. Simple char-code hash for shard selection.
-  let hash = 0;
-  for (let i = 0; i < hashedIp.length; i++) {
-    hash = ((hash << 5) - hash + hashedIp.charCodeAt(i)) | 0;
-  }
-  return `shard-${Math.abs(hash) % RATE_LIMITER_SHARD_COUNT}`;
-}
-
 async function checkRateLimit(env, ip, endpoint, limit, windowSecs) {
   if (!env.RATE_LIMITER) return false; // no binding — fail open
   if (!ip) return false; // no pseudonymized IP (IP_HASH_SECRET unset) — fail open
@@ -719,20 +625,6 @@ async function checkRateLimit(env, ip, endpoint, limit, windowSecs) {
   } catch {
     return false; // fail open
   }
-}
-
-/**
- * JSON response helper
- */
-function jsonResponse(data, status = 200, extraHeaders = {}) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: {
-      'Content-Type': 'application/json',
-      ...CORS_HEADERS,
-      ...extraHeaders,
-    }
-  });
 }
 
 /**
@@ -3038,6 +2930,3 @@ body {
 </script>
 </body>
 </html>`;
-
-// Named exports for unit testing (do not affect the default Worker export).
-export { hashIP, shardKeyFromIP };
