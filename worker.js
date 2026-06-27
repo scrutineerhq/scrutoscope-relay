@@ -1900,7 +1900,7 @@ body {
       html += '<div class="route">' + escHtml(request.method || 'GET') + ' ' + escHtml(request.route_key || request.url || '/') + '</div>';
     }
     if (request.role) html += '<div class="meta-item"><strong>Role:</strong> ' + escHtml(request.role) + '</div>';
-    if (request.status) html += '<div class="meta-item"><strong>Status:</strong> ' + request.status + '</div>';
+    if (request.status) html += '<div class="meta-item"><strong>Status:</strong> ' + escHtml(String(request.status)) + '</div>';
     if (report.captured_at) html += '<div class="meta-item"><strong>Captured:</strong> ' + escHtml(formatDate(report.captured_at)) + '</div>';
     html += '<div class="meta-item" style="color:var(--text-dim)">Expires: ' + escHtml(formatDate(meta.expires_at)) + '</div>';
     html += '</div>';
@@ -2780,7 +2780,7 @@ body {
       html += '<tr>';
       html += '<td class="mono" style="max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escHtml(h.url) + '">' + escHtml(h.url) + '</td>';
       html += '<td>' + escHtml(h.method) + '</td>';
-      html += '<td' + (statusClass ? ' class="' + statusClass + '"' : '') + '>' + (h.status || '—') + '</td>';
+      html += '<td' + (statusClass ? ' class="' + statusClass + '"' : '') + '>' + escHtml(String(h.status || '—')) + '</td>';
       html += '<td><span class="source-badge" style="background:' + color + '22;color:' + color + '">' + escHtml(h.source_name || 'unknown') + '</span></td>';
       html += '<td class="num">' + formatMs(h.duration_ms || 0) + '</td>';
       html += '</tr>';
