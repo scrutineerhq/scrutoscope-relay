@@ -7,9 +7,11 @@
   "scripts": {
     "check": "node --check worker.js",
     "build": "wrangler deploy --dry-run --outdir=dist",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
+    "@playwright/test": "^1.49.1",
     "vitest": "^2.1.9",
     "wrangler": "^3.90.0"
   }

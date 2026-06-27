@@ -28,3 +28,24 @@ jobs:
 
       - name: Unit tests
         run: npm test
+
+  e2e:
+    name: Browser QA (relay viewer)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Viewer e2e (XSS + security headers, vs wrangler dev)
+        run: npm run test:e2e
+        env:
+          WRANGLER_SEND_METRICS: 'false'
