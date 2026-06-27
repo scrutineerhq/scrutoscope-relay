@@ -1,0 +1,16 @@
+{
+  "name": "scrutinizer-relay",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Zero-knowledge encrypted report sharing relay (Cloudflare Worker).",
+  "scripts": {
+    "check": "node --check worker.js",
+    "build": "wrangler deploy --dry-run --outdir=dist",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.9",
+    "wrangler": "^3.90.0"
+  }
+}

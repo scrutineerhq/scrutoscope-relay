@@ -3038,3 +3038,6 @@ body {
 </script>
 </body>
 </html>`;
+
+// Named exports for unit testing (do not affect the default Worker export).
+export { hashIP, shardKeyFromIP };
