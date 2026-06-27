@@ -399,7 +399,7 @@ async function handleCreate(request, env) {
   }
 
   // Validate required fields
-  const { ciphertext, iv, ttl_days, has_passphrase, expire_after_reading, compressed } = body;
+  const { ciphertext, iv, ttl_days, has_passphrase, expire_after_reading, compressed, kdf_salt, kdf_iterations } = body;
 
   if (!ciphertext || typeof ciphertext !== 'string') {
     return jsonResponse({ error: 'Missing or invalid ciphertext' }, 400);
@@ -438,6 +438,14 @@ async function handleCreate(request, env) {
     created_at: new Date().toISOString(),
     expires_at: expiresAt,
   };
+
+  // Non-secret PBKDF2 parameters for passphrase shares (versioned format).
+  // Stored so the viewer can reproduce the derivation; absent for legacy
+  // shares, which the viewer handles with the old salt=IV / 100k fallback.
+  if (has_passphrase && typeof kdf_salt === 'string' && Number.isFinite(kdf_iterations)) {
+    metadata.kdf_salt = kdf_salt;
+    metadata.kdf_iterations = String(kdf_iterations);
+  }
 
   await env.REPORTS.put(`report:${id}`, ciphertext, {
     customMetadata: metadata,
@@ -490,6 +498,12 @@ async function handleGetData(id, request, env) {
     created_at: meta.created_at,
     expires_at: meta.expires_at,
   };
+
+  // Versioned PBKDF2 params for passphrase shares (absent on legacy shares).
+  if (meta.kdf_salt) {
+    response.kdf_salt = meta.kdf_salt;
+    response.kdf_iterations = parseInt(meta.kdf_iterations, 10) || 600000;
+  }
 
   // Expire after reading — delete after serving
   if (meta.expire_after_reading === 'true' || meta.expire_after_reading === true) {
@@ -1720,7 +1734,7 @@ body {
   }
 
   // Decrypt
-  async function decryptReport(ciphertextB64, ivB64, keyB64, passphrase, compressed) {
+  async function decryptReport(ciphertextB64, ivB64, keyB64, passphrase, compressed, kdf) {
     let keyBytes = base64urlDecode(keyB64);
 
     // If passphrase, unwrap the data key first
@@ -1731,9 +1745,12 @@ body {
       const passphraseKey = await crypto.subtle.importKey(
         'raw', enc.encode(passphrase), 'PBKDF2', false, ['deriveBits', 'deriveKey']
       );
-      const salt = base64urlDecode(ivB64); // reuse IV as PBKDF2 salt for simplicity
+      // Versioned format provides a dedicated salt + iteration count. Legacy
+      // shares predate that and reused the content IV as salt at 100k.
+      const salt = (kdf && kdf.salt) ? base64urlDecode(kdf.salt) : base64urlDecode(ivB64);
+      const iterations = (kdf && kdf.iterations) ? kdf.iterations : 100000;
       const wrappingKey = await crypto.subtle.deriveKey(
-        { name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' },
+        { name: 'PBKDF2', salt, iterations, hash: 'SHA-256' },
         passphraseKey,
         { name: 'AES-GCM', length: 256 },
         false,
@@ -1838,7 +1855,7 @@ body {
 
       try {
         showLoading('Decrypting…');
-        const report = await decryptReport(data.ciphertext, data.iv, fragment, passphrase, data.compressed);
+        const report = await decryptReport(data.ciphertext, data.iv, fragment, passphrase, data.compressed, { salt: data.kdf_salt, iterations: data.kdf_iterations });
         renderReport(report, data);
       } catch {
         showPassphrasePrompt(data, fragment);
