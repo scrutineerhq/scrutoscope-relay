@@ -169,4 +169,26 @@ test.describe('viewer XSS hardening', () => {
     const segs = await page.locator('#panel-breakdown .breakdown-segment').count();
     expect(segs, 'breakdown segments must render from _ns-only data').toBeGreaterThan(0);
   });
+
+  test('trace shows callback names from raw _callback/_hook fields', async ({ page }) => {
+    // Raw trace items carry _callback / _hook (underscored) and no source.
+    // Guards the regression where the trace showed times but no names.
+    const report = {
+      captured_at: '2026-01-01T00:00:00Z',
+      summary: { duration_ns: 50000000, callback_count: 2 },
+      request: { method: 'GET', route_key: '/', status: 200 },
+      sources: [{ source: 'plugin-a', name: 'Plugin A', type: 'plugin', exclusive_ns: 40000000, call_count: 1 }],
+      trace: [
+        { id: 'a', _callback: 'my_init_callback', _hook: 'init', exclusive_ns: 4000000, children: [] },
+        { id: 'b', _callback: 'My\\Plugin\\Class::render', _hook: 'wp_head', exclusive_ns: 2000000, children: [] },
+      ],
+      timeline: [], phase_markers: [], queries: [], http_calls: [],
+    };
+    await loadReport(page, report);
+    await page.getByRole('button', { name: 'Trace', exact: true }).first().click()
+      .catch(() => page.locator('text=Trace').first().click());
+    await page.waitForTimeout(500);
+    const names = await page.locator('#panel-trace .cb-name').evaluateAll((els) => els.map((e) => e.textContent).filter(Boolean));
+    expect(names, 'trace callback names must render').toContain('my_init_callback');
+  });
 });

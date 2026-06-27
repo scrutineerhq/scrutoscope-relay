@@ -1330,6 +1330,12 @@ body {
     const next = html.dataset.theme === 'dark' ? 'light' : 'dark';
     html.dataset.theme = next;
     localStorage.setItem('scrutinizer-theme', next);
+    // The timeline module uses inline styles and can't follow CSS-variable
+    // theme changes — re-render it in the new scheme.
+    const mount = document.getElementById('panel-timeline');
+    if (mount && window.ScrutinizerTimeline && window.__scrutinizerReport) {
+      window.ScrutinizerTimeline.render(mount, window.__scrutinizerReport, { scheme: next === 'dark' ? 'dark' : 'fresh' });
+    }
   }
   const themeToggleBtn = document.getElementById('theme-toggle');
   if (themeToggleBtn) themeToggleBtn.addEventListener('click', toggleTheme);
@@ -1795,10 +1801,13 @@ body {
 
     // Render the timeline via the shared module (byte-identical to the plugin's
     // renderer). report is the decrypted profile_data; the module degrades
-    // gracefully when memory_samples or other layers are absent.
+    // gracefully when memory_samples or other layers are absent. Stash the
+    // report so the theme toggle can re-render it (the module uses inline
+    // styles and can't follow CSS-variable theme changes).
+    window.__scrutinizerReport = report;
     var tlMount = document.getElementById('panel-timeline');
     if (tlMount && window.ScrutinizerTimeline) {
-      window.ScrutinizerTimeline.render(tlMount, report);
+      window.ScrutinizerTimeline.render(tlMount, report, { scheme: document.documentElement.dataset.theme === 'dark' ? 'dark' : 'fresh' });
     }
 
     // Guidance dismiss button (avoids inline onclick quoting issues in template literal).
@@ -2105,10 +2114,11 @@ body {
   function renderTrace(trace) {
     let html = '<div class="trace-tree">';
 
-    // Group by phase if available (null-prototype: phase is report-controlled).
+    // Group by the WordPress hook (lifecycle phase). Raw trace items carry
+    // _hook / _callback (underscored); fall back to legacy names.
     const phases = Object.create(null);
     trace.forEach(item => {
-      const phase = item.phase || 'other';
+      const phase = item._hook || item.hook || item.phase || 'other';
       if (!phases[phase]) phases[phase] = [];
       phases[phase].push(item);
     });
@@ -2120,10 +2130,12 @@ body {
         '<span class="phase-time">' + formatMs(totalPhaseMs) + '</span></summary>';
       html += '<div class="trace-callbacks">';
       items.slice(0, 200).forEach(item => {
-        const color = SOURCE_COLORS[item.source_type] || SOURCE_COLORS.unknown;
+        const name = item._callback || item.callback || item.id || '';
+        const src = item.source || '';
+        const color = SOURCE_COLORS[item.source_type || item.type || 'unknown'] || SOURCE_COLORS.unknown;
         html += '<div class="trace-callback">' +
-          '<span class="cb-source" style="background:' + color + '22;color:' + color + '">' + escHtml(item.source || '') + '</span>' +
-          '<span class="cb-name">' + escHtml(item.callback || '') + '</span>' +
+          (src ? '<span class="cb-source" style="background:' + color + '22;color:' + color + '">' + escHtml(src) + '</span>' : '') +
+          '<span class="cb-name">' + escHtml(name) + '</span>' +
           '<span class="cb-time">' + formatMs(item.exclusive_ms || 0) + '</span></div>';
       });
       if (items.length > 200) {

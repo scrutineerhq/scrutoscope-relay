@@ -14,7 +14,7 @@ import { createHash } from 'node:crypto';
  *
  * If this test fails, the two copies have drifted — re-sync them.
  */
-const EXPECTED_SHA256 = 'e766fe9585ceefb0758660bc568b43ffe2b43e05b700a3225543246844c084f4';
+const EXPECTED_SHA256 = '3614bd6c5b0d76eab8d49d650c5fe3d1af231e9a7bbf534321e23d231d4e11d5';
 
 describe('shared timeline renderer', () => {
   it('matches the byte-identical hash shared with the plugin', () => {
