@@ -26,17 +26,43 @@ const CORS_HEADERS = {
 
 const SECURITY_HEADERS = {
   'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload',
-  'Content-Security-Policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
   'X-Frame-Options': 'DENY',
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
 };
 
+// Build the CSP. The viewer is the only page with an inline <script>; it is
+// served with a per-response nonce so the script runs while 'unsafe-inline' is
+// dropped. Every other response has no script and falls back to script-src
+// 'none', so any unescaped report content is inert rather than executable.
+function buildCSP(scriptSrc) {
+  return "default-src 'none'; script-src " + scriptSrc +
+    "; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
+}
+
+// Generate a 128-bit base64 nonce for the viewer's inline <script>.
+function generateNonce() {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin);
+}
+
 function withSecurityHeaders(response) {
   const resp = new Response(response.body, response);
   for (const [k, v] of Object.entries(SECURITY_HEADERS)) {
     resp.headers.set(k, v);
+  }
+  // A handler serving inline script passes its nonce via the internal
+  // X-CSP-Nonce header; promote it into the CSP and strip it from the response.
+  const nonce = resp.headers.get('X-CSP-Nonce');
+  if (nonce) {
+    resp.headers.delete('X-CSP-Nonce');
+    resp.headers.set('Content-Security-Policy', buildCSP("'nonce-" + nonce + "'"));
+  } else {
+    resp.headers.set('Content-Security-Policy', buildCSP("'none'"));
   }
   return resp;
 }
@@ -540,7 +566,8 @@ async function handleView(id, env) {
     exists = false;
   }
 
-  const html = generateViewerHTML(id, exists);
+  const nonce = generateNonce();
+  const html = generateViewerHTML(id, exists, nonce);
 
   return new Response(html, {
     status: 200,
@@ -550,6 +577,7 @@ async function handleView(id, env) {
       'Referrer-Policy': 'no-referrer',
       'X-Content-Type-Options': 'nosniff',
       'X-Frame-Options': 'DENY',
+      'X-CSP-Nonce': nonce,
       ...CORS_HEADERS,
     }
   });
@@ -631,19 +659,22 @@ function jsonResponse(data, status = 200, extraHeaders = {}) {
 /**
  * Generate the full SPA viewer HTML
  */
-function generateViewerHTML(reportId, reportExists) {
+function generateViewerHTML(reportId, reportExists, nonce) {
   return VIEWER_HTML.replace('{{REPORT_ID}}', reportId)
     .replace('{{REPORT_EXISTS}}', reportExists ? 'true' : 'false')
-    .replace('{{MODE}}', 'relay');
+    .replace('{{MODE}}', 'relay')
+    .replace('{{NONCE}}', nonce || '');
 }
 
 /**
  * GET /view — file upload viewer (drop zone for local JSON exports)
  */
 function handleFileViewer() {
+  const nonce = generateNonce();
   const html = VIEWER_HTML.replace('{{REPORT_ID}}', '')
     .replace('{{REPORT_EXISTS}}', 'false')
-    .replace('{{MODE}}', 'file');
+    .replace('{{MODE}}', 'file')
+    .replace('{{NONCE}}', nonce);
 
   return new Response(html, {
     status: 200,
@@ -651,6 +682,7 @@ function handleFileViewer() {
       'Content-Type': 'text/html;charset=utf-8',
       'Cache-Control': 'no-store',
       'X-Content-Type-Options': 'nosniff',
+      'X-CSP-Nonce': nonce,
       ...CORS_HEADERS,
     }
   });
@@ -1530,7 +1562,7 @@ body {
 <header class="viewer-header">
   <h1><a href="https://scrutineer.dev/scrutinizer" style="color:inherit;text-decoration:none"><span class="wordmark">Scrutinizer</span></a> Report</h1>
   <div class="controls">
-    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">◐</button>
+    <button class="theme-toggle" id="theme-toggle" title="Toggle theme">◐</button>
   </div>
 </header>
 
@@ -1538,7 +1570,7 @@ body {
   <div id="app"></div>
 </div>
 
-<script>
+<script nonce="{{NONCE}}">
 (function() {
   'use strict';
 
@@ -1589,7 +1621,8 @@ body {
     html.dataset.theme = next;
     localStorage.setItem('scrutinizer-theme', next);
   }
-  window.toggleTheme = toggleTheme;
+  const themeToggleBtn = document.getElementById('theme-toggle');
+  if (themeToggleBtn) themeToggleBtn.addEventListener('click', toggleTheme);
   const savedTheme = localStorage.getItem('scrutinizer-theme');
   if (savedTheme) document.documentElement.dataset.theme = savedTheme;
 
@@ -1818,12 +1851,13 @@ body {
       '<p>This report is protected with a passphrase.</p>' +
       '<div class="passphrase-form">' +
       '<input type="password" id="passphrase-input" placeholder="Enter passphrase" autofocus>' +
-      '<button onclick="window._attemptDecrypt()">Decrypt</button>' +
+      '<button id="passphrase-decrypt">Decrypt</button>' +
       '<div id="passphrase-error" class="error-text"></div>' +
       '</div></div>';
 
     const input = document.getElementById('passphrase-input');
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter') window._attemptDecrypt(); });
+    document.getElementById('passphrase-decrypt').addEventListener('click', () => window._attemptDecrypt());
 
     let attempts = 0;
     window._attemptDecrypt = async function() {
