@@ -23,7 +23,7 @@ export const SECURITY_HEADERS = {
 };
 
 export const MAX_REPORT_SIZE = 10 * 1024 * 1024; // 10MB max ciphertext (R2 supports up to 5GB)
-export const VALID_TTL_DAYS = [1, 7, 14, 30];
+export const VALID_TTL_DAYS = [0, 1, 7, 14, 30];
 export const DEFAULT_TTL_DAYS = 7;
 
 const RATE_LIMITER_SHARD_COUNT = 16;

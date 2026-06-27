@@ -350,6 +350,20 @@ function handleLanding() {
     margin-top: 0.5rem;
   }
   .footer-link:hover { border-color: var(--teal); color: var(--text); }
+  .link-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+    align-items: center;
+    margin-top: 0.5rem;
+  }
+  .local-note {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6875rem;
+    color: var(--muted);
+    opacity: 0.7;
+    margin-top: -0.25rem;
+  }
 </style>
 </head>
 <body>
@@ -359,7 +373,11 @@ function handleLanding() {
   <div class="tagline">Don't optimize. Scrutinize.</div>
   <p>Zero-knowledge encrypted report sharing. Reports are encrypted client-side before upload. This server stores only ciphertext it cannot read. Decryption keys never leave your browser.</p>
   <div class="divider"></div>
-  <a href="https://scrutineer.dev/scrutinizer" class="footer-link">Get Scrutinizer for your WordPress site →</a>
+  <div class="link-group">
+    <a href="/view" class="footer-link">View a trace →</a>
+    <span class="local-note">Drop in a JSON export. Nothing is uploaded.</span>
+    <a href="https://scrutineer.dev/scrutinizer" class="footer-link">Get Scrutinizer for WordPress →</a>
+  </div>
 </div>
 </body>
 </html>`;
@@ -414,10 +432,9 @@ async function handleCreate(request, env) {
     return jsonResponse({ error: `Report too large. Maximum ${MAX_REPORT_SIZE / 1024 / 1024}MB.` }, 413);
   }
 
-  // TTL
+  // TTL — 0 means no expiration (permanent demo/marketing links)
   const ttl = VALID_TTL_DAYS.includes(ttl_days) ? ttl_days : DEFAULT_TTL_DAYS;
-  const ttlSeconds = ttl * 24 * 60 * 60;
-  const expiresAt = new Date(Date.now() + ttlSeconds * 1000).toISOString();
+  const expiresAt = ttl === 0 ? null : new Date(Date.now() + ttl * 86400000).toISOString();
 
   // Generate 128-bit capability ID
   const idBytes = new Uint8Array(16);
