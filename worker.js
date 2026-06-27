@@ -2809,7 +2809,7 @@ body {
       const color = SOURCE_COLORS[h.source_type] || SOURCE_COLORS.unknown;
       const statusClass = h.is_error || (h.status >= 400) ? ' slow' : '';
       html += '<tr>';
-      html += '<td class="mono" style="max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escHtml(h.url) + '">' + escHtml(h.url) + '</td>';
+      html += '<td class="mono" style="max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escAttr(String(h.url || '')) + '">' + escHtml(String(h.url || '')) + '</td>';
       html += '<td>' + escHtml(h.method) + '</td>';
       html += '<td' + (statusClass ? ' class="' + statusClass + '"' : '') + '>' + escHtml(String(h.status || '—')) + '</td>';
       html += '<td><span class="source-badge" style="background:' + color + '22;color:' + color + '">' + escHtml(h.source_name || 'unknown') + '</span></td>';
@@ -2921,7 +2921,9 @@ body {
   }
 
   function escAttr(str) {
-    return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return String(str == null ? '' : str)
+      .replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+      .replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
   // Go
