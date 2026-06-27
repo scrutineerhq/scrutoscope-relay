@@ -20,3 +20,11 @@ bindings = [
 [[migrations]]
 tag = "v1"
 new_classes = ["RateLimiterDO"]
+
+# Import the shared timeline renderer as a text module (its source string),
+# so worker.js can inject it verbatim into the viewer page. Scoped to just
+# that one file so worker.js / lib.js stay normal ES modules.
+[[rules]]
+type = "Text"
+globs = ["**/scrutinizer-timeline.js"]
+fallthrough = true

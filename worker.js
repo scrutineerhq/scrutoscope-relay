@@ -29,6 +29,12 @@ import {
   jsonResponse,
 } from './src/lib.js';
 
+// The shared, framework-agnostic timeline renderer — byte-identical to the
+// plugin's assets/js/scrutinizer-timeline.js (a checksum test guards drift).
+// Imported as text and injected into the viewer page so both surfaces render
+// the timeline identically. See wrangler.toml's Text rule.
+import TIMELINE_SRC from './src/scrutinizer-timeline.js';
+
 export default {
   async fetch(request, env) {
     if (request.method === 'OPTIONS') {
@@ -651,6 +657,7 @@ function generateViewerHTML(reportId, reportExists, nonce) {
   return VIEWER_HTML.replace('{{REPORT_ID}}', reportId)
     .replace('{{REPORT_EXISTS}}', reportExists ? 'true' : 'false')
     .replace('{{MODE}}', 'relay')
+    .replace('{{TIMELINE_JS}}', () => TIMELINE_SRC)
     .replace('{{NONCE}}', nonce || '');
 }
 
@@ -662,6 +669,7 @@ function handleFileViewer() {
   const html = VIEWER_HTML.replace('{{REPORT_ID}}', '')
     .replace('{{REPORT_EXISTS}}', 'false')
     .replace('{{MODE}}', 'file')
+    .replace('{{TIMELINE_JS}}', () => TIMELINE_SRC)
     .replace('{{NONCE}}', nonce);
 
   return new Response(html, {
@@ -1105,295 +1113,6 @@ body {
 .sql-expandable:hover { color: var(--teal); }
 .sql-full { white-space: pre-wrap; word-break: break-all; font-size: 0.8rem; cursor: pointer; }
 
-/* Timeline */
-.timeline-container {
-  position: relative;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 1.5rem;
-  overflow: visible;
-}
-.timeline-zoom-controls {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 12px;
-  font-size: 0.8rem;
-}
-.timeline-zoom-controls button {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  color: var(--text);
-  border-radius: 4px;
-  width: 28px;
-  height: 28px;
-  font-size: 1rem;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.timeline-zoom-controls button:hover {
-  background: var(--border);
-}
-.timeline-zoom-level {
-  font-family: var(--mono);
-  color: var(--text-muted);
-  min-width: 28px;
-  text-align: center;
-}
-.timeline-zoom-hint {
-  color: var(--text-dim);
-  font-size: 0.7rem;
-  margin-left: 8px;
-}
-.timeline-viewport {
-  overflow-x: auto;
-  overflow-y: visible;
-  position: relative;
-}
-.rubber-band {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  background: rgba(21, 183, 164, 0.15);
-  border-left: 2px solid var(--teal);
-  border-right: 2px solid var(--teal);
-  pointer-events: none;
-  z-index: 5;
-  display: none;
-}
-.timeline-zoom-wrapper {
-  min-width: 100%;
-  position: relative;
-  transform-origin: left top;
-}
-.timeline-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 16px;
-  margin-top: 12px;
-  font-size: 0.75rem;
-  color: var(--text-muted);
-}
-.timeline-legend-item {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-.timeline-legend-swatch {
-  width: 10px;
-  height: 10px;
-  border-radius: 2px;
-  flex-shrink: 0;
-}
-.milestones {
-  position: relative;
-  width: 100%;
-}
-.milestone {
-  position: absolute;
-  bottom: 0;
-  transform: translateX(-50%);
-}
-.milestone.milestone-right .milestone-label {
-  left: auto;
-  right: 50%;
-  transform: none;
-  text-align: right;
-}
-.milestone.milestone-left .milestone-label {
-  left: 50%;
-  transform: none;
-  text-align: left;
-}
-.milestone-stem {
-  display: block;
-  width: 1px;
-  height: 100%;
-  background: var(--border);
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-}
-.milestone-dot {
-  display: block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--text-muted);
-  position: absolute;
-  top: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-}
-.milestone-label {
-  display: block;
-  font-size: 0.65rem;
-  color: var(--text-muted);
-  white-space: nowrap;
-  text-align: center;
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  font-family: var(--mono);
-}
-.timeline-bar {
-  position: relative;
-  height: 32px;
-  background: var(--bg);
-  border-radius: 4px;
-  overflow: hidden;
-}
-.timeline-bar .segment {
-  position: absolute;
-  top: 0;
-  height: 100%;
-  min-width: 1px;
-  cursor: default;
-}
-.timeline-bar .segment:hover {
-  opacity: 0.8;
-}
-.timeline-axis {
-  position: relative;
-  height: 18px;
-  margin-top: 4px;
-  font-size: 0.7rem;
-  color: var(--text-dim);
-  font-family: var(--mono);
-}
-.timeline-axis .tick {
-  position: absolute;
-  transform: translateX(-50%);
-  white-space: nowrap;
-}
-.timeline-axis .tick:first-child {
-  transform: none;
-}
-.timeline-axis .tick:last-child {
-  transform: translateX(-100%);
-}
-
-/* HTTP lollipops below bar */
-.http-lollipops {
-  position: relative;
-  width: 100%;
-  margin-top: 2px;
-}
-.http-lollipop {
-  position: absolute;
-  top: 0;
-  transform: translateX(-50%);
-}
-.http-stem {
-  display: block;
-  width: 1px;
-  height: calc(100% - 24px);
-  background: var(--border);
-  position: absolute;
-  top: 0;
-  left: 50%;
-}
-.http-dot {
-  display: block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  position: absolute;
-  bottom: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-}
-.http-dot.http-fast { background: #27ae60; }
-.http-dot.http-medium { background: #e67e22; }
-.http-dot.http-slow { background: #e74c3c; }
-.http-label {
-  display: block;
-  font-size: 0.6rem;
-  color: var(--text-dim);
-  white-space: nowrap;
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-}
-.http-label em {
-  font-style: normal;
-  color: var(--text-muted);
-}
-.http-lollipop.http-error .http-stem { background: #e74c3c; }
-
-/* Query density */
-.query-density-wrap {
-  display: flex;
-  align-items: flex-end;
-  gap: 6px;
-  margin-top: 6px;
-}
-.density-label {
-  font-size: 0.65rem;
-  color: var(--text-dim);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  flex-shrink: 0;
-  padding-bottom: 1px;
-  font-family: var(--mono);
-}
-.query-density {
-  display: flex;
-  align-items: flex-end;
-  height: 16px;
-  flex: 1;
-  gap: 1px;
-  border-radius: 2px;
-  overflow: hidden;
-}
-.density-bar {
-  flex: 1;
-  min-height: 0;
-  border-radius: 1px;
-}
-.density-bar.density-none { background: transparent; }
-.density-bar.density-normal { background: #c3c4c7; }
-.density-bar.density-medium { background: #dba617; }
-.density-bar.density-slow { background: #d63638; }
-
-/* Memory sparkline */
-/* Memory sparkline — overlaid on the timeline bar */
-.memory-overlay-svg {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 2;
-}
-.memory-overlay-svg .memory-hit-area,
-.memory-overlay-svg .memory-line {
-  pointer-events: stroke;
-  cursor: help;
-}
-.memory-overlay-svg:hover .memory-line {
-  stroke: rgba(230, 126, 34, 1);
-  stroke-width: 2.5;
-}
-.memory-overlay-label {
-  position: absolute;
-  right: 4px;
-  top: 2px;
-  font-size: 0.6rem;
-  color: #e67e22;
-  font-family: var(--mono);
-  white-space: nowrap;
-  pointer-events: none;
-  z-index: 3;
-  text-shadow: 0 0 3px rgba(0,0,0,0.6), 0 0 6px rgba(0,0,0,0.4);
-}
-
 /* Legend */
 .legend {
   display: flex;
@@ -1559,6 +1278,9 @@ body {
 </div>
 
 <script nonce="{{NONCE}}">
+/* ===== shared timeline renderer (window.ScrutinizerTimeline) ===== */
+{{TIMELINE_JS}}
+/* ===== viewer app ===== */
 (function() {
   'use strict';
 
@@ -1984,9 +1706,10 @@ body {
     // Tab panels
     // Timeline
     if (timeline.length || milestones.length) {
-      html += '<div class="tab-panel' + (tabs[0]?.id === 'timeline' ? ' active' : '') + '" id="panel-timeline">';
-      html += renderTimeline(timeline, milestones, durationMs, httpCalls, queries, sources);
-      html += '</div>';
+      // Empty mount — rendered by the shared ScrutinizerTimeline module after
+      // app.innerHTML below (the same renderer the plugin dashboard uses, so
+      // both viewing surfaces are identical).
+      html += '<div class="tab-panel' + (tabs[0]?.id === 'timeline' ? ' active' : '') + '" id="panel-timeline"></div>';
     }
 
     // Breakdown
@@ -2055,6 +1778,14 @@ body {
     html += '</div>';
 
     app.innerHTML = html;
+
+    // Render the timeline via the shared module (byte-identical to the plugin's
+    // renderer). report is the decrypted profile_data; the module degrades
+    // gracefully when memory_samples or other layers are absent.
+    var tlMount = document.getElementById('panel-timeline');
+    if (tlMount && window.ScrutinizerTimeline) {
+      window.ScrutinizerTimeline.render(tlMount, report);
+    }
 
     // Guidance dismiss button (avoids inline onclick quoting issues in template literal).
     var dismissBtn = document.getElementById('dismiss-guidance');
@@ -2150,121 +1881,6 @@ body {
       }
     });
 
-    // Zoom/pan controls for timeline.
-    (function() {
-      var wrapper = document.querySelector('.timeline-zoom-wrapper');
-      var viewport = document.querySelector('.timeline-viewport');
-      var zoomIn = document.querySelector('.zoom-in-btn');
-      var zoomOut = document.querySelector('.zoom-out-btn');
-      var zoomReset = document.querySelector('.zoom-reset-btn');
-      var zoomLabel = document.querySelector('.timeline-zoom-level');
-      if (!wrapper || !viewport) return;
-
-      var zoom = 1;
-      var maxZoom = 10;
-
-      function applyZoom() {
-        wrapper.style.width = (zoom * 100) + '%';
-        if (zoomLabel) zoomLabel.textContent = zoom.toFixed(zoom >= 2 ? 0 : 1) + 'x';
-      }
-
-      if (zoomIn) zoomIn.addEventListener('click', function() {
-        zoom = Math.min(zoom * 1.5, maxZoom);
-        applyZoom();
-      });
-      if (zoomOut) zoomOut.addEventListener('click', function() {
-        zoom = Math.max(zoom / 1.5, 1);
-        applyZoom();
-      });
-      if (zoomReset) zoomReset.addEventListener('click', function() {
-        zoom = 1;
-        applyZoom();
-        viewport.scrollLeft = 0;
-      });
-
-      // Scroll-to-zoom (no modifier key needed).
-      viewport.addEventListener('wheel', function(e) {
-        e.preventDefault();
-        var rect = viewport.getBoundingClientRect();
-        var mouseX = e.clientX - rect.left + viewport.scrollLeft;
-        var oldZoom = zoom;
-        if (e.deltaY < 0) {
-          zoom = Math.min(zoom * 1.3, maxZoom);
-        } else {
-          zoom = Math.max(zoom / 1.3, 1);
-        }
-        applyZoom();
-        // Keep point under cursor stable.
-        var newScrollLeft = mouseX * (zoom / oldZoom) - (e.clientX - rect.left);
-        viewport.scrollLeft = Math.max(0, newScrollLeft);
-      }, { passive: false });
-
-      // Rubber band select (at 1x) or drag to pan (when zoomed).
-      var dragging = false;
-      var rubberBanding = false;
-      var startX = 0;
-      var startScroll = 0;
-      var rubberBandStartX = 0;
-      var rubberBandEl = document.createElement('div');
-      rubberBandEl.className = 'rubber-band';
-      viewport.appendChild(rubberBandEl);
-
-      viewport.addEventListener('mousedown', function(e) {
-        if (e.button !== 0) return;
-        if (e.target.classList.contains('timeline-segment')) return;
-        e.preventDefault();
-        var rect = viewport.getBoundingClientRect();
-        if (zoom <= 1) {
-          rubberBanding = true;
-          rubberBandStartX = e.clientX - rect.left;
-          rubberBandEl.style.left = rubberBandStartX + 'px';
-          rubberBandEl.style.width = '0px';
-          rubberBandEl.style.display = 'block';
-          viewport.style.cursor = 'col-resize';
-        } else {
-          dragging = true;
-          startX = e.clientX;
-          startScroll = viewport.scrollLeft;
-          viewport.style.cursor = 'grabbing';
-        }
-      });
-      document.addEventListener('mousemove', function(e) {
-        if (rubberBanding) {
-          var rect = viewport.getBoundingClientRect();
-          var currentX = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
-          var left = Math.min(rubberBandStartX, currentX);
-          var width = Math.abs(currentX - rubberBandStartX);
-          rubberBandEl.style.left = left + 'px';
-          rubberBandEl.style.width = width + 'px';
-          return;
-        }
-        if (!dragging) return;
-        viewport.scrollLeft = startScroll - (e.clientX - startX);
-      });
-      document.addEventListener('mouseup', function(e) {
-        if (rubberBanding) {
-          rubberBanding = false;
-          rubberBandEl.style.display = 'none';
-          viewport.style.cursor = '';
-          var rect = viewport.getBoundingClientRect();
-          var endX = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
-          var left = Math.min(rubberBandStartX, endX);
-          var width = Math.abs(endX - rubberBandStartX);
-          if (width < 10) return;
-          var viewportW = rect.width;
-          var selStartPct = left / viewportW;
-          var selWidthPct = width / viewportW;
-          zoom = Math.min(1 / selWidthPct, maxZoom);
-          applyZoom();
-          viewport.scrollLeft = selStartPct * viewportW * zoom;
-          return;
-        }
-        if (dragging) {
-          dragging = false;
-          viewport.style.cursor = '';
-        }
-      });
-    })();
   }
 
   // Tab switching
@@ -2280,272 +1896,6 @@ body {
       (sub ? '<div class="sub">' + escHtml(sub) + '</div>' : '') + '</div>';
   }
 
-  function renderTimeline(timeline, milestones, totalMs, httpCalls, queries, sources) {
-    if (!totalMs) return '<p style="color:var(--text-muted)">No timeline data.</p>';
-
-    var durationNs = totalMs * 1e6;
-    var html = '<div class="timeline-container">';
-
-    // Zoom controls.
-    html += '<div class="timeline-zoom-controls">';
-    html += '<button type="button" class="zoom-out-btn" title="Zoom out">&minus;</button>';
-    html += '<span class="timeline-zoom-level">1&times;</span>';
-    html += '<button type="button" class="zoom-in-btn" title="Zoom in">+</button>';
-    html += '<button type="button" style="width:auto;padding:0 10px" class="zoom-reset-btn" title="Reset zoom">Reset</button>';
-    html += '<span class="timeline-zoom-hint">Drag to select &middot; Scroll to zoom</span>';
-    html += '</div>';
-
-    // Scrollable viewport.
-    html += '<div class="timeline-viewport">';
-    html += '<div class="timeline-zoom-wrapper">';
-
-    // Phase milestones — lollipop stems above the bar.
-    var labelPositions = [];
-    for (var m = 0; m < milestones.length; m++) {
-      var marker = milestones[m];
-      var markerPct = (marker.offset_ms / totalMs) * 100;
-      if (markerPct > 100) markerPct = 100;
-      labelPositions.push({ pct: markerPct, name: marker.label || marker.hook || '' });
-    }
-    // Assign tiers to prevent horizontal label overlap.
-    var labelTiers = [];
-    for (var li = 0; li < labelPositions.length; li++) {
-      var tier = 0;
-      for (var lj = 0; lj < li; lj++) {
-        if (Math.abs(labelPositions[li].pct - labelPositions[lj].pct) < 8 && labelTiers[lj] >= tier) {
-          tier = labelTiers[lj] + 1;
-        }
-      }
-      labelTiers.push(tier);
-    }
-    var maxTier = 0;
-    for (var lt = 0; lt < labelTiers.length; lt++) {
-      if (labelTiers[lt] > maxTier) maxTier = labelTiers[lt];
-    }
-    var tierPx = 32;
-    var baseOffset = 20;
-    var milestoneHeight = labelPositions.length > 0 ? (maxTier + 1) * tierPx + baseOffset + 16 : 0;
-
-    if (labelPositions.length > 0) {
-      html += '<div class="milestones" style="height:' + milestoneHeight + 'px">';
-      for (var lk = 0; lk < labelPositions.length; lk++) {
-        var stemHeight = (labelTiers[lk] + 1) * tierPx + baseOffset;
-        var leftPct = labelPositions[lk].pct.toFixed(2);
-        var pctVal = labelPositions[lk].pct;
-        var edgeCls = '';
-        if (pctVal > 85) {
-          edgeCls = ' milestone-right';
-        } else if (pctVal < 15) {
-          edgeCls = ' milestone-left';
-        }
-        html += '<div class="milestone' + edgeCls + '" style="left:' + leftPct + '%;height:' + stemHeight + 'px">';
-        html += '<span class="milestone-label">' + escHtml(labelPositions[lk].name) + '</span>';
-        html += '<span class="milestone-dot"></span>';
-        html += '<span class="milestone-stem"></span>';
-        html += '</div>';
-      }
-      html += '</div>';
-    }
-
-    // Timeline bar.
-    html += '<div class="timeline-bar">';
-    for (var i = 0; i < timeline.length; i++) {
-      var seg = timeline[i];
-      var segPctW = seg.pct_width || ((seg.duration_ms || 0) / totalMs * 100);
-      var segPctS = seg.pct_start != null ? seg.pct_start : ((seg.offset_ms || 0) / totalMs * 100);
-      if (segPctW < 0.05) continue;
-      var segColor = getSourceColor(seg.source || '', seg.source_type || 'unknown');
-      var segTitle = escAttr((seg.callback || seg.source || '') + ' \u00b7 ' + formatMs(seg.duration_ms || 0));
-      html += '<div class="segment" style="left:' + segPctS.toFixed(3) + '%;width:' + Math.max(segPctW, 0.15).toFixed(3) + '%;background:' + segColor + '" title="' + segTitle + '"></div>';
-    }
-
-    // Memory usage sparkline — overlay on the timeline bar.
-    var memPoints = [];
-    for (var mi = 0; mi < timeline.length; mi++) {
-      var memVal = timeline[mi].mem_after || 0;
-      if (memVal > 0) {
-        var memPctX = (timeline[mi].pct_start || 0) + (timeline[mi].pct_width || 0);
-        memPoints.push({ pct: memPctX, mem: memVal });
-      }
-    }
-    if (memPoints.length >= 2) {
-      var memMin = memPoints[0].mem;
-      var memMax = memPoints[0].mem;
-      for (var mm = 1; mm < memPoints.length; mm++) {
-        if (memPoints[mm].mem < memMin) memMin = memPoints[mm].mem;
-        if (memPoints[mm].mem > memMax) memMax = memPoints[mm].mem;
-      }
-      var memRange = memMax - memMin;
-      if (memRange > memMax * 0.01) {
-        var pathD = '';
-        for (var mp = 0; mp < memPoints.length; mp++) {
-          var sx = memPoints[mp].pct;
-          var sy = 100 - ((memPoints[mp].mem - memMin) / memRange) * 80 - 10;
-          pathD += (mp === 0 ? 'M' : 'L') + sx.toFixed(2) + ',' + sy.toFixed(1) + ' ';
-        }
-        var memLabel = formatBytes(memMax) + ' peak';
-        var memMinLabel = formatBytes(memMin);
-        var memTitle = 'Memory: ' + memMinLabel + ' &#x2192; ' + memLabel;
-        html += '<svg class="memory-overlay-svg" viewBox="0 0 100 100" preserveAspectRatio="none">';
-        html += '<title>' + escHtml(memTitle) + '</title>';
-        html += '<path d="' + pathD + '" fill="none" stroke="transparent" stroke-width="10" vector-effect="non-scaling-stroke" class="memory-hit-area"/>';
-        html += '<path d="' + pathD + '" fill="none" stroke="rgba(230,126,34,0.7)" stroke-width="2" vector-effect="non-scaling-stroke" class="memory-line"/>';
-        html += '</svg>';
-        html += '<span class="memory-overlay-label">' + escHtml(memLabel) + '</span>';
-      }
-    }
-
-    html += '</div>';
-
-    // Time axis — 5 evenly spaced ticks.
-    html += '<div class="timeline-axis">';
-    var tickCount = 5;
-    for (var k = 0; k <= tickCount; k++) {
-      var tickMs = (totalMs * k / tickCount).toFixed(0);
-      var tickPct = (k / tickCount) * 100;
-      html += '<span class="tick" style="left:' + tickPct + '%">' + tickMs + ' ms</span>';
-    }
-    html += '</div>';
-
-    // HTTP call lollipops — below the bar (inverted stems).
-    if (httpCalls && httpCalls.length > 0) {
-      var httpPositions = [];
-      for (var hi = 0; hi < httpCalls.length; hi++) {
-        var hc = httpCalls[hi];
-        var hPct = hc.offset_ms != null ? (hc.offset_ms / totalMs) * 100 : -1;
-        if (hPct < 0 || hPct > 100) continue;
-        httpPositions.push({ pct: hPct, call: hc });
-      }
-      if (httpPositions.length > 0) {
-        var httpTiers = [];
-        for (var hti = 0; hti < httpPositions.length; hti++) {
-          var hTier = 0;
-          for (var htj = 0; htj < hti; htj++) {
-            if (Math.abs(httpPositions[hti].pct - httpPositions[htj].pct) < 8 && httpTiers[htj] >= hTier) {
-              hTier = httpTiers[htj] + 1;
-            }
-          }
-          httpTiers.push(hTier);
-        }
-        var httpMaxTier = 0;
-        for (var hmt = 0; hmt < httpTiers.length; hmt++) {
-          if (httpTiers[hmt] > httpMaxTier) httpMaxTier = httpTiers[hmt];
-        }
-        var httpTierPx = 32;
-        var httpBaseOffset = 20;
-        var httpHeight = (httpMaxTier + 1) * httpTierPx + httpBaseOffset + 16;
-        html += '<div class="http-lollipops" style="height:' + httpHeight + 'px">';
-        for (var hlk = 0; hlk < httpPositions.length; hlk++) {
-          var hStemHeight = (httpTiers[hlk] + 1) * httpTierPx + httpBaseOffset;
-          var hLeftPct = httpPositions[hlk].pct.toFixed(2);
-          var hCall = httpPositions[hlk].call;
-          var hDurMs = (hCall.duration_ms || 0).toFixed(0);
-          var hHost = '';
-          try { hHost = new URL(hCall.url).hostname; } catch(e) { hHost = hCall.url || ''; }
-          var hStatusCls = '';
-          if (hCall.is_error) {
-            hStatusCls = ' http-error';
-          } else if (hCall.status >= 400) {
-            hStatusCls = ' http-error';
-          }
-          var hDotColor = '';
-          if (hCall.is_error || (hCall.status && hCall.status >= 400)) {
-            hDotColor = '#c44337';
-          } else if (hCall.status >= 300) {
-            hDotColor = '#dba617';
-          } else if (hCall.source_name) {
-            hDotColor = getSourceColor(hCall.source_name, hCall.source_type || 'unknown');
-          } else {
-            hDotColor = '#50575e';
-          }
-          var hTitle = (hCall.method || 'GET') + ' ' + (hCall.url || '') + '\\n' + hDurMs + ' ms';
-          if (hCall.status) hTitle += ' \u2014 HTTP ' + hCall.status;
-          if (hCall.caller) hTitle += '\\n' + hCall.caller;
-          html += '<div class="http-lollipop' + hStatusCls + '" style="left:' + hLeftPct + '%;height:' + hStemHeight + 'px" title="' + escAttr(hTitle) + '">';
-          html += '<span class="http-stem"></span>';
-          html += '<span class="http-dot" style="background:' + hDotColor + '"></span>';
-          html += '<span class="http-label">' + escHtml(truncateHost(hHost, 24)) + ' <em>' + hDurMs + 'ms</em></span>';
-          html += '</div>';
-        }
-        html += '</div>';
-      }
-    }
-
-    // Query density strip — thin heatmap showing where queries cluster.
-    var timelineQueries = [];
-    if (queries && queries.length > 0) {
-      for (var qi = 0; qi < queries.length; qi++) {
-        if (queries[qi].offset_ms != null) {
-          timelineQueries.push(queries[qi]);
-        }
-      }
-    }
-    if (timelineQueries.length > 0) {
-      var bucketCount = 60;
-      var buckets = [];
-      var bucketMaxMs = [];
-      for (var bi = 0; bi < bucketCount; bi++) {
-        buckets.push(0);
-        bucketMaxMs.push(0);
-      }
-      for (var tqi = 0; tqi < timelineQueries.length; tqi++) {
-        var bIdx = Math.floor((timelineQueries[tqi].offset_ms / totalMs) * bucketCount);
-        if (bIdx >= bucketCount) bIdx = bucketCount - 1;
-        if (bIdx < 0) bIdx = 0;
-        buckets[bIdx]++;
-        var tqMs = timelineQueries[tqi].time_ms || 0;
-        if (tqMs > bucketMaxMs[bIdx]) bucketMaxMs[bIdx] = tqMs;
-      }
-      var maxCount = 1;
-      for (var mc = 0; mc < buckets.length; mc++) {
-        if (buckets[mc] > maxCount) maxCount = buckets[mc];
-      }
-      html += '<div class="query-density-wrap">';
-      html += '<span class="density-label">Queries</span>';
-      html += '<div class="query-density">';
-      for (var db = 0; db < bucketCount; db++) {
-        var fillPct = (buckets[db] / maxCount) * 100;
-        var barCls = 'density-none';
-        if (buckets[db] > 0) {
-          barCls = 'density-normal';
-          if (bucketMaxMs[db] >= 5) barCls = 'density-slow';
-          else if (bucketMaxMs[db] >= 1) barCls = 'density-medium';
-        }
-        var dTitle = buckets[db] > 0 ? buckets[db] + ' quer' + (buckets[db] === 1 ? 'y' : 'ies') + ', slowest ' + bucketMaxMs[db].toFixed(1) + ' ms' : '';
-        html += '<div class="density-bar ' + barCls + '" style="height:' + Math.max(fillPct, buckets[db] > 0 ? 20 : 0) + '%" title="' + escAttr(dTitle) + '"></div>';
-      }
-      html += '</div>';
-      html += '</div>';
-    }
-
-    html += '</div>'; // timeline-zoom-wrapper
-    html += '</div>'; // timeline-viewport
-
-    // Legend — show all sources present in the timeline.
-    if (sources && sources.length > 0) {
-      html += '<div class="timeline-legend">';
-      var legendSorted = [...sources].sort(function(a, b) { return (b.exclusive_ms || 0) - (a.exclusive_ms || 0); });
-      legendSorted.forEach(function(src) {
-        var color = getSourceColor(src.source || src.name || '', src.type || 'unknown');
-        html += '<div class="timeline-legend-item"><div class="timeline-legend-swatch" style="background:' + color + '"></div>' +
-          escHtml(src.source || src.name) + '</div>';
-      });
-      html += '</div>';
-    }
-
-    // I/O summary counts below timeline.
-    var queryCount = queries ? queries.length : 0;
-    var httpCount = httpCalls ? httpCalls.length : 0;
-    if (queryCount > 0 || httpCount > 0) {
-      var parts = [];
-      if (queryCount > 0) parts.push(queryCount + ' quer' + (queryCount === 1 ? 'y' : 'ies'));
-      if (httpCount > 0) parts.push(httpCount + ' HTTP call' + (httpCount === 1 ? '' : 's'));
-      html += '<div style="font-size:0.8rem;color:var(--text-dim);margin-top:8px;text-align:center">' + parts.join(' \u00b7 ') + '</div>';
-    }
-
-    html += '</div>'; // timeline-container
-    return html;
-  }
 
   function renderBreakdownBar(sources, totalMs) {
     if (!totalMs) return '';
