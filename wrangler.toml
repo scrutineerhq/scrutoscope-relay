@@ -6,6 +6,12 @@ compatibility_date = "2024-09-23"
 binding = "REPORTS"
 bucket_name = "scrutinizer-reports"
 
+# Required secret (set via `wrangler secret put IP_HASH_SECRET`):
+#   IP_HASH_SECRET — HMAC key used to pseudonymize client IPs for rate
+#   limiting. If unset, IPs are NOT hashed with any fallback salt and rate
+#   limiting fails open (it is not a security boundary — see DECISIONS D28).
+#   Set a long random value in production so the IP hash is non-reversible.
+
 [durable_objects]
 bindings = [
   { name = "RATE_LIMITER", class_name = "RateLimiterDO" }
