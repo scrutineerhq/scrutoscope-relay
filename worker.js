@@ -1705,17 +1705,23 @@ body {
     }
     html += '</div>';
 
-    // Tab bar
+    // Tab bar. Lightweight captures record source totals only — no timeline or
+    // per-callback trace — so those tabs are omitted (they'd be empty).
+    const lightweight = !!summary.lightweight;
     const tabs = [];
-    if (timeline.length || milestones.length) tabs.push({ id: 'timeline', label: 'Timeline' });
+    if (!lightweight && (timeline.length || milestones.length)) tabs.push({ id: 'timeline', label: 'Timeline' });
     if (sources.length) tabs.push({ id: 'breakdown', label: 'Breakdown' });
     if (sources.length) tabs.push({ id: 'sources', label: 'Sources' });
     if (queries.length) tabs.push({ id: 'queries', label: 'Queries' });
-    if (trace.length) tabs.push({ id: 'trace', label: 'Trace' });
+    if (!lightweight && trace.length) tabs.push({ id: 'trace', label: 'Trace' });
     if (httpCalls.length) tabs.push({ id: 'http_calls', label: 'HTTP Calls' });
     if (autoloadedOptions && autoloadedOptions.total_size) tabs.push({ id: 'options', label: 'Options' });
     if (enqueuedAssets && ((enqueuedAssets.scripts || []).length || (enqueuedAssets.styles || []).length)) tabs.push({ id: 'assets', label: 'Assets' });
     if (diagnostics || (report.dev_signals || []).length || (report.textdomain_jit || []).length || (report.boot_phases || []).length) tabs.push({ id: 'diagnostics', label: 'Diagnostics' });
+
+    if (lightweight) {
+      html += '<p style="font-size:0.8rem;color:var(--text-muted);margin:0 0 1rem;">Captured in lightweight mode — source totals only (no timeline or per-callback trace).</p>';
+    }
 
     html += '<div class="tab-bar">';
     tabs.forEach((t, i) => {
