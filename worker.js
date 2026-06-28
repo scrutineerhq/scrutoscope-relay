@@ -1715,7 +1715,7 @@ body {
     if (httpCalls.length) tabs.push({ id: 'http_calls', label: 'HTTP Calls' });
     if (autoloadedOptions && autoloadedOptions.total_size) tabs.push({ id: 'options', label: 'Options' });
     if (enqueuedAssets && ((enqueuedAssets.scripts || []).length || (enqueuedAssets.styles || []).length)) tabs.push({ id: 'assets', label: 'Assets' });
-    if (diagnostics) tabs.push({ id: 'diagnostics', label: 'Diagnostics' });
+    if (diagnostics || (report.dev_signals || []).length || (report.textdomain_jit || []).length || (report.boot_phases || []).length) tabs.push({ id: 'diagnostics', label: 'Diagnostics' });
 
     html += '<div class="tab-bar">';
     tabs.forEach((t, i) => {
@@ -1746,6 +1746,7 @@ body {
       html += '<div class="tab-panel" id="panel-sources">';
       html += '<p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:1rem;">Each source&#39;s contribution to server request duration, with callback counts.</p>';
       html += renderSourcesTable(sources, durationMs);
+      html += renderCoreSubsystems(report.core_subsystems || []);
       html += '</div>';
     }
 
@@ -1784,10 +1785,13 @@ body {
       html += '</div>';
     }
 
-    // Diagnostics
-    if (diagnostics) {
+    // Diagnostics + core-developer signals
+    if (diagnostics || (report.dev_signals || []).length || (report.textdomain_jit || []).length || (report.boot_phases || []).length) {
       html += '<div class="tab-panel" id="panel-diagnostics">';
-      html += renderDiagnostics(diagnostics);
+      if (diagnostics) html += renderDiagnostics(diagnostics);
+      html += renderDevSignals(report.dev_signals || []);
+      html += renderTextdomainJit(report.textdomain_jit || []);
+      html += renderBootPhases(report.boot_phases || []);
       html += '</div>';
     }
 
@@ -2146,6 +2150,61 @@ body {
 
     html += '</div>';
     return html;
+  }
+
+  // ---- Core-developer diagnostics (parity with the plugin dashboard) ----
+
+  function renderCoreSubsystems(subsystems) {
+    if (!subsystems || !subsystems.length) return '';
+    let total = 0;
+    subsystems.forEach(s => { total += s.exclusive_ns || 0; });
+    if (total <= 0) return '';
+    let html = '<h3 style="margin:1.5rem 0 0.5rem;font-size:1rem;">WordPress Core — subsystem breakdown</h3>';
+    html += '<p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.75rem;">Where the time inside the single "core" bucket goes. Aggregate only — labels and totals.</p>';
+    html += '<table class="data-table"><thead><tr><th>Subsystem</th><th class="num">Exclusive</th><th class="num">Calls</th><th class="num">%</th></tr></thead><tbody>';
+    subsystems.forEach(s => {
+      const pct = (total ? (s.exclusive_ns || 0) / total * 100 : 0).toFixed(1);
+      html += '<tr><td>' + escHtml(s.subsystem || '') + '</td><td class="num">' + formatMs((s.exclusive_ns || 0) / 1e6) + '</td><td class="num">' + (s.call_count || 0) + '</td><td class="num">' + pct + '%</td></tr>';
+    });
+    return html + '</tbody></table>';
+  }
+
+  function renderDevSignals(signals) {
+    if (!signals || !signals.length) return '';
+    const labels = { deprecated_function: 'Deprecated function', deprecated_hook: 'Deprecated hook', deprecated_argument: 'Deprecated argument', deprecated_file: 'Deprecated file', doing_it_wrong: 'Doing it wrong' };
+    let html = '<h3 style="margin:1.5rem 0 0.5rem;font-size:1rem;">Developer signals</h3>';
+    html += '<p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.75rem;">Deprecations and _doing_it_wrong() notices triggered during this request, and which source triggered each. Counts only.</p>';
+    html += '<table class="data-table"><thead><tr><th>Signal</th><th>API</th><th>Since</th><th>Triggered by</th><th class="num">Count</th></tr></thead><tbody>';
+    signals.forEach(s => {
+      html += '<tr><td>' + escHtml(labels[s.type] || s.type || '') + '</td><td><code>' + escHtml(s.name || '') + '</code></td><td>' + escHtml(s.version || '—') + '</td><td>' + escHtml(s.source || '—') + '</td><td class="num">' + (s.count || 0) + '</td></tr>';
+    });
+    return html + '</tbody></table>';
+  }
+
+  function renderTextdomainJit(loads) {
+    if (!loads || !loads.length) return '';
+    let html = '<h3 style="margin:1.5rem 0 0.5rem;font-size:1rem;">Just-in-time translations</h3>';
+    html += '<p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.75rem;">Textdomains loaded on demand because a translation ran before the textdomain was registered.</p>';
+    html += '<table class="data-table"><thead><tr><th>Textdomain</th><th>Loaded on hook</th><th class="num">Count</th></tr></thead><tbody>';
+    loads.forEach(l => {
+      html += '<tr><td><code>' + escHtml(l.domain || '') + '</code></td><td><code>' + escHtml(l.hook || '—') + '</code></td><td class="num">' + (l.count || 0) + '</td></tr>';
+    });
+    return html + '</tbody></table>';
+  }
+
+  function renderBootPhases(phases) {
+    if (!phases || !phases.length) return '';
+    let total = 0;
+    phases.forEach(p => { total += p.ns || 0; });
+    if (total <= 0) return '';
+    let html = '<h3 style="margin:1.5rem 0 0.5rem;font-size:1rem;">Boot sequence</h3>';
+    html += '<p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.75rem;">The pre-plugin bootstrap, split at the points we can hook.</p>';
+    html += '<table class="data-table"><thead><tr><th>Phase</th><th class="num">Time</th><th class="num">%</th></tr></thead><tbody>';
+    phases.forEach(p => {
+      const pct = (total ? (p.ns || 0) / total * 100 : 0).toFixed(1);
+      html += '<tr><td>' + escHtml(p.phase || '') + '</td><td class="num">' + formatMs((p.ns || 0) / 1e6) + '</td><td class="num">' + pct + '%</td></tr>';
+    });
+    return html + '</tbody></table>';
   }
 
   function renderDiagnostics(diag) {
