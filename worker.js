@@ -2371,7 +2371,9 @@ body {
   function formatDate(iso) {
     if (!iso) return '—';
     try {
-      return new Date(iso).toLocaleString();
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return '—';
+      return d.toLocaleString();
     } catch { return iso; }
   }
 
