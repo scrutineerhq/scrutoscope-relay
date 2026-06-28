@@ -170,17 +170,19 @@ test.describe('viewer XSS hardening', () => {
     expect(segs, 'breakdown segments must render from _ns-only data').toBeGreaterThan(0);
   });
 
-  test('trace shows callback names from raw _callback/_hook fields', async ({ page }) => {
-    // Raw trace items carry _callback / _hook (underscored) and no source.
-    // Guards the regression where the trace showed times but no names.
+  test('trace parses callback + hook from the composite id', async ({ page }) => {
+    // The REAL trace shape: each item carries only a composite id,
+    // "callback@hook:priority" — no separate _hook/_callback fields. The viewer
+    // must parse it (and strip spl_object_id "#123" hashes) and group by hook.
     const report = {
       captured_at: '2026-01-01T00:00:00Z',
-      summary: { duration_ns: 50000000, callback_count: 2 },
+      summary: { duration_ns: 50000000, callback_count: 3 },
       request: { method: 'GET', route_key: '/', status: 200 },
       sources: [{ source: 'plugin-a', name: 'Plugin A', type: 'plugin', exclusive_ns: 40000000, call_count: 1 }],
       trace: [
-        { id: 'a', _callback: 'my_init_callback', _hook: 'init', exclusive_ns: 4000000, children: [] },
-        { id: 'b', _callback: 'My\\Plugin\\Class::render', _hook: 'wp_head', exclusive_ns: 2000000, children: [] },
+        { id: 'my_init_callback@init:10', start_ns: 0, end_ns: 4000000, inclusive_ns: 4000000, exclusive_ns: 4000000 },
+        { id: 'My\\Plugin\\Widget#4821::render@wp_head:10', start_ns: 5e6, end_ns: 7e6, inclusive_ns: 2000000, exclusive_ns: 2000000 },
+        { id: 'another_init_cb@init:20', start_ns: 8e6, end_ns: 9e6, inclusive_ns: 1000000, exclusive_ns: 1000000 },
       ],
       timeline: [], phase_markers: [], queries: [], http_calls: [],
     };
@@ -189,6 +191,13 @@ test.describe('viewer XSS hardening', () => {
       .catch(() => page.locator('text=Trace').first().click());
     await page.waitForTimeout(500);
     const names = await page.locator('#panel-trace .cb-name').evaluateAll((els) => els.map((e) => e.textContent).filter(Boolean));
-    expect(names, 'trace callback names must render').toContain('my_init_callback');
+    const groups = await page.locator('#panel-trace .trace-phase summary').evaluateAll((els) => els.map((e) => e.textContent.trim().split(' ')[0]));
+    // Callback name parsed from the id, with the #4821 hash stripped.
+    expect(names, 'callback name parsed from id').toContain('my_init_callback');
+    expect(names, 'spl_object_id hash stripped').toContain('My\\Plugin\\Widget::render');
+    // Grouped by the parsed hook, NOT all under "other".
+    expect(groups, 'grouped by hook init').toContain('init');
+    expect(groups, 'grouped by hook wp_head').toContain('wp_head');
+    expect(groups, 'must not dump everything under other').not.toContain('other');
   });
 });
