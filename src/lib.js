@@ -49,7 +49,9 @@ export function generateNonce() {
 export function withSecurityHeaders(response) {
   const resp = new Response(response.body, response);
   for (const [k, v] of Object.entries(SECURITY_HEADERS)) {
-    resp.headers.set(k, v);
+    if (!resp.headers.has(k)) {
+      resp.headers.set(k, v);
+    }
   }
   // A handler serving inline script passes its nonce via the internal
   // X-CSP-Nonce header; promote it into the CSP and strip it from the response.

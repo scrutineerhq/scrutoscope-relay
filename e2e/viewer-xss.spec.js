@@ -33,7 +33,7 @@ const maliciousReport = {
   ],
   queries: [
     { sql: poison('SELECT wp_posts'), source: poison('Plugin A'),
-      caller: poison('do_thing()'), duration_ms: 5 },
+      caller: poison('do_thing()'), time_ms: 5 },
   ],
   http_calls: [
     { method: poison('GET'), url: poison('https://evil.example/'), host: poison('evil.example'),

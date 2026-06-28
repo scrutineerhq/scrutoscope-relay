@@ -281,7 +281,7 @@ function handleLanding() {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Scrutinizer Relay — Encrypted Report Sharing</title>
+<title>Scrutinizer Relay - Encrypted Report Sharing</title>
 <meta name="robots" content="noindex, nofollow">
 <meta property="og:title" content="Scrutinizer Relay">
 <meta property="og:description" content="Zero-knowledge encrypted report sharing for WordPress performance diagnostics.">
@@ -376,7 +376,7 @@ function handleLanding() {
 <div class="container">
   <div class="lock-icon">🔒</div>
   <h1>Scrutinizer Relay</h1>
-  <div class="tagline">Don't optimize. Scrutinize.</div>
+  <div class="tagline">Don&#39;t optimize. Scrutinize.</div>
   <p>Zero-knowledge encrypted report sharing. Reports are encrypted client-side before upload. This server stores only ciphertext it cannot read. Decryption keys never leave your browser.</p>
   <div class="divider"></div>
   <div class="link-group">
@@ -612,8 +612,6 @@ async function handleView(id, env) {
       'Content-Type': 'text/html;charset=utf-8',
       'Cache-Control': 'no-store',
       'Referrer-Policy': 'no-referrer',
-      'X-Content-Type-Options': 'nosniff',
-      'X-Frame-Options': 'DENY',
       'X-CSP-Nonce': nonce,
       ...CORS_HEADERS,
     }
@@ -677,7 +675,6 @@ function handleFileViewer() {
     headers: {
       'Content-Type': 'text/html;charset=utf-8',
       'Cache-Control': 'no-store',
-      'X-Content-Type-Options': 'nosniff',
       'X-CSP-Nonce': nonce,
       ...CORS_HEADERS,
     }
@@ -705,29 +702,23 @@ const VIEWER_HTML = `<!DOCTYPE html>
 <style>
 :root {
   --bg: #0a0a0a;
+  --bg-body: var(--bg);
   --bg-card: #141414;
   --bg-card-hover: #1a1a1a;
   --border: #2a2a2a;
   --text: #e0e0e0;
+  --text-primary: var(--text);
   --text-muted: #888;
   --text-dim: #666;
   --accent: #60a5fa;
   --accent-hover: #93c5fd;
+  --teal: #15B7A4;
   --green: #4ade80;
   --red: #f87171;
   --amber: #fbbf24;
   --orange: #fb923c;
   --mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
   --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-
-  /* Source colors — match plugin */
-  --src-plugin: #60a5fa;
-  --src-theme: #c084fc;
-  --src-core: #94a3b8;
-  --src-mu-plugin: #fb923c;
-  --src-drop-in: #4ade80;
-  --src-unknown: #fbbf24;
-  --src-unattributed: #475569;
 }
 
 html[data-theme="light"] {
@@ -1648,14 +1639,14 @@ body {
       html += '<div class="guidance" id="guidance">' +
         '<button class="dismiss" id="dismiss-guidance">✕</button>' +
         '<h2>📊 How to read this report</h2>' +
-        '<p>This performance report was shared with you by a WordPress site owner. It shows server-side profiling data — where time goes during a page request.</p>' +
+        '<p>This performance report was shared with you by a WordPress site owner. It shows server-side profiling data - where time goes during a page request.</p>' +
         '<ul>' +
-        '<li><strong>Timeline</strong> — when things happen during request processing</li>' +
-        '<li><strong>Breakdown</strong> — which plugins and theme use the most server time</li>' +
-        '<li><strong>Sources</strong> — detailed attribution with callback counts</li>' +
-        '<li><strong>Queries</strong> — database calls, sorted by duration</li>' +
+        '<li><strong>Timeline</strong> - when things happen during request processing</li>' +
+        '<li><strong>Breakdown</strong> - which plugins and theme use the most server time</li>' +
+        '<li><strong>Sources</strong> - detailed attribution with callback counts</li>' +
+        '<li><strong>Queries</strong> - database calls, sorted by duration</li>' +
         '</ul>' +
-        '<p style="margin-top:0.75rem;">\ud83d\udd12 Do not share this link with anyone else \u2014 it contains the key to view this report.</p>' +
+        '<p style="margin-top:0.75rem;">\ud83d\udd12 Do not share this link with anyone else - it contains the key to view this report.</p>' +
         '</div>';
     }
 
@@ -1720,7 +1711,7 @@ body {
     if (diagnostics || (report.dev_signals || []).length || (report.textdomain_jit || []).length || (report.boot_phases || []).length) tabs.push({ id: 'diagnostics', label: 'Diagnostics' });
 
     if (lightweight) {
-      html += '<p style="font-size:0.8rem;color:var(--text-muted);margin:0 0 1rem;">Captured in lightweight mode — source totals only (no timeline or per-callback trace).</p>';
+      html += '<p style="font-size:0.8rem;color:var(--text-muted);margin:0 0 1rem;">Captured in lightweight mode - source totals only (no timeline or per-callback trace).</p>';
     }
 
     html += '<div class="tab-bar">';
@@ -1804,7 +1795,7 @@ body {
     // Security footer
     html += '<div class="security-footer">';
     html += '🔒 This report was decrypted entirely in your browser. The server never sees the contents.<br>';
-    html += '<a href="https://scrutineer.dev/scrutinizer">Scrutinizer</a> — WordPress Performance Profiler';
+    html += '<a href="https://scrutineer.dev/scrutinizer">Scrutinizer</a> - WordPress Performance Profiler';
     html += '</div>';
 
     app.innerHTML = html;
@@ -2179,8 +2170,8 @@ body {
     let total = 0;
     subsystems.forEach(s => { total += s.exclusive_ns || 0; });
     if (total <= 0) return '';
-    let html = '<h3 style="margin:1.5rem 0 0.5rem;font-size:1rem;">WordPress Core — subsystem breakdown</h3>';
-    html += '<p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.75rem;">Where the time inside the single "core" bucket goes. Aggregate only — labels and totals.</p>';
+    let html = '<h3 style="margin:1.5rem 0 0.5rem;font-size:1rem;">WordPress Core - subsystem breakdown</h3>';
+    html += '<p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.75rem;">Where the time inside the single "core" bucket goes. Aggregate only - labels and totals.</p>';
     html += '<table class="data-table"><thead><tr><th>Subsystem</th><th class="num">Exclusive</th><th class="num">Calls</th><th class="num">%</th></tr></thead><tbody>';
     subsystems.forEach(s => {
       const pct = (total ? (s.exclusive_ns || 0) / total * 100 : 0).toFixed(1);
