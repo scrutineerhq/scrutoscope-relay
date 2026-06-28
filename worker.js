@@ -2115,14 +2115,31 @@ body {
     return html;
   }
 
+  // Parse a trace id "callback@hook:priority" into its parts. The raw trace
+  // only carries this composite id — there are no separate _hook/_callback
+  // fields — so the viewer must split it (mirrors the plugin's parseTraceId).
+  function parseTraceId(id) {
+    id = id || '';
+    const at = id.lastIndexOf('@');
+    if (at <= 0) {
+      return { callback: id, hook: '' };
+    }
+    const callback = id.slice(0, at);
+    const rest = id.slice(at + 1);
+    const colon = rest.lastIndexOf(':');
+    return { callback: callback, hook: colon > 0 ? rest.slice(0, colon) : rest };
+  }
+
   function renderTrace(trace) {
     let html = '<div class="trace-tree">';
 
-    // Group by the WordPress hook (lifecycle phase). Raw trace items carry
-    // _hook / _callback (underscored); fall back to legacy names.
+    // Group by the WordPress hook, parsed out of the composite id. Stash the
+    // display callback (spl_object_id "#123" hashes stripped) on each item.
     const phases = Object.create(null);
     trace.forEach(item => {
-      const phase = item._hook || item.hook || item.phase || 'other';
+      const parsed = parseTraceId(item.id);
+      item.__cb = parsed.callback.replace(/#\\d+/g, '');
+      const phase = parsed.hook || 'other';
       if (!phases[phase]) phases[phase] = [];
       phases[phase].push(item);
     });
@@ -2134,11 +2151,8 @@ body {
         '<span class="phase-time">' + formatMs(totalPhaseMs) + '</span></summary>';
       html += '<div class="trace-callbacks">';
       items.slice(0, 200).forEach(item => {
-        const name = item._callback || item.callback || item.id || '';
-        const src = item.source || '';
-        const color = SOURCE_COLORS[item.source_type || item.type || 'unknown'] || SOURCE_COLORS.unknown;
+        const name = item.__cb || item.id || '';
         html += '<div class="trace-callback">' +
-          (src ? '<span class="cb-source" style="background:' + color + '22;color:' + color + '">' + escHtml(src) + '</span>' : '') +
           '<span class="cb-name">' + escHtml(name) + '</span>' +
           '<span class="cb-time">' + formatMs(item.exclusive_ms || 0) + '</span></div>';
       });
