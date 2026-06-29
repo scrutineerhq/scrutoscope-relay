@@ -28,3 +28,6 @@ new_classes = ["RateLimiterDO"]
 type = "Text"
 globs = ["**/scrutinizer-timeline.js"]
 fallthrough = true
+
+[triggers]
+crons = ["0 4 * * *"]  # Daily at 4am UTC — clean up expired R2 reports

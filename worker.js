@@ -105,6 +105,30 @@ export default {
       console.error('Worker error:', err);
       return withSecurityHeaders(jsonResponse({ error: 'Internal error' }, 500));
     }
+  },
+
+  // Daily cleanup of expired R2 reports.
+  // R2 has no native TTL; without this, expired reports persist until accessed.
+  async scheduled(event, env) {
+    const now = new Date();
+    let cursor = undefined;
+    let deleted = 0;
+
+    do {
+      const listed = await env.REPORTS.list({ prefix: 'report:', limit: 500, cursor });
+      for (const obj of listed.objects) {
+        const meta = obj.customMetadata || {};
+        if (meta.expires_at && new Date(meta.expires_at) < now) {
+          await env.REPORTS.delete(obj.key);
+          deleted++;
+        }
+      }
+      cursor = listed.truncated ? listed.cursor : undefined;
+    } while (cursor);
+
+    if (deleted > 0) {
+      console.log(`Scheduled cleanup: deleted ${deleted} expired report(s)`);
+    }
   }
 };
 
@@ -467,6 +491,11 @@ async function handleCreate(request, env) {
   // Stored so the viewer can reproduce the derivation; absent for legacy
   // shares, which the viewer handles with the old salt=IV / 100k fallback.
   if (has_passphrase && typeof kdf_salt === 'string' && Number.isFinite(kdf_iterations)) {
+    if (kdf_iterations < 100000) {
+      return new Response(JSON.stringify({ error: 'kdf_iterations must be at least 100000' }), {
+        status: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      });
+    }
     metadata.kdf_salt = kdf_salt;
     metadata.kdf_iterations = String(kdf_iterations);
   }
