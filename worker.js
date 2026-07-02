@@ -102,7 +102,7 @@ export default {
       // PUT /r/{id} — admin-only ciphertext replacement (temporary)
       const putMatch = path.match(/^\/r\/([a-f0-9]{32})$/);
       if (putMatch && request.method === 'PUT') {
-        const authResult = checkAdminAuth(request, env);
+        const authResult = checkAdminAuth(request, env.ADMIN_KEY);
         if (authResult) return withSecurityHeaders(authResult);
         const id = putMatch[1];
         const obj = await env.REPORTS.get(`report:${id}`);
