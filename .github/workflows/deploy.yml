@@ -32,6 +32,6 @@ jobs:
         run: sleep 10
       - name: Smoke test
         run: |
-          STATUS=$(curl -s -o /dev/null -w '%{http_code}' https://scrutinizer.dev/)
+          STATUS=$(curl -s -o /dev/null -w '%{http_code}' https://scrutoscope.dev/)
           if [ "$STATUS" != "200" ]; then echo "Root failed: $STATUS"; exit 1; fi
           echo "✅ Smoke test passed (root 200)"

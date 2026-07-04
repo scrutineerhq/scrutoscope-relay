@@ -1,16 +1,10 @@
-name = "scrutinizer-relay"
+name = "scrutoscope"
 main = "worker.js"
 compatibility_date = "2024-09-23"
 
 [[r2_buckets]]
 binding = "REPORTS"
 bucket_name = "scrutinizer-reports"
-
-# Required secret (set via `wrangler secret put IP_HASH_SECRET`):
-#   IP_HASH_SECRET — HMAC key used to pseudonymize client IPs for rate
-#   limiting. If unset, IPs are NOT hashed with any fallback salt and rate
-#   limiting fails open (it is not a security boundary — see DECISIONS D28).
-#   Set a long random value in production so the IP hash is non-reversible.
 
 [durable_objects]
 bindings = [
@@ -21,13 +15,10 @@ bindings = [
 tag = "v1"
 new_classes = ["RateLimiterDO"]
 
-# Import the shared timeline renderer as a text module (its source string),
-# so worker.js can inject it verbatim into the viewer page. Scoped to just
-# that one file so worker.js / lib.js stay normal ES modules.
 [[rules]]
 type = "Text"
 globs = ["**/scrutinizer-timeline.js"]
 fallthrough = true
 
 [triggers]
-crons = ["0 4 * * *"]  # Daily at 4am UTC — clean up expired R2 reports
+crons = ["0 4 * * *"]
