@@ -1873,9 +1873,9 @@ body {
     html += '<div class="request-info">';
     if (request.label) {
       html += '<div><div class="route-label">' + escHtml(request.label) + '</div>' +
-        '<div class="route">' + escHtml(request.method || 'GET') + ' ' + escHtml(request.route_key || request.url || '/') + '</div></div>';
+        '<div class="route">' + escHtml(request.method || 'GET') + ' ' + escHtml(request.route_key || stripDomain(request.url) || '/') + '</div></div>';
     } else {
-      html += '<div class="route">' + escHtml(request.method || 'GET') + ' ' + escHtml(request.route_key || request.url || '/') + '</div>';
+      html += '<div class="route">' + escHtml(request.method || 'GET') + ' ' + escHtml(request.route_key || stripDomain(request.url) || '/') + '</div>';
     }
     if (request.role) html += '<div class="meta-item"><strong>Role:</strong> ' + escHtml(request.role) + '</div>';
     if (request.status) html += '<div class="meta-item"><strong>Status:</strong> ' + escHtml(String(request.status)) + '</div>';
@@ -2612,6 +2612,11 @@ body {
     return String(str == null ? '' : str)
       .replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
       .replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function stripDomain(url) {
+    if (!url) return '/';
+    try { return new URL(url).pathname; } catch (e) { return url; }
   }
 
   // Go
