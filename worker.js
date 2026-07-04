@@ -207,11 +207,11 @@ const SCRUTOSCOPE_HTML = `<!DOCTYPE html>
 <meta property="og:description" content="WordPress performance profiler by the author of P3. Timeline visualization, hook execution trace, per-plugin attribution. Free and open source.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://scrutoscope.dev">
-<meta property="og:image" content="https://raw.githubusercontent.com/scrutineerhq/scrutinizer/main/.wordpress-org/banner-1544x500.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/scrutineerhq/scrutoscope/main/.wordpress-org/banner-1544x500.png">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Scrutoscope — WordPress Performance Profiler">
 <meta name="twitter:description" content="See where your site&#39;s time goes. Hook by hook, query by query. Free and open source.">
-<meta name="twitter:image" content="https://raw.githubusercontent.com/scrutineerhq/scrutinizer/main/.wordpress-org/banner-1544x500.png">
+<meta name="twitter:image" content="https://raw.githubusercontent.com/scrutineerhq/scrutoscope/main/.wordpress-org/banner-1544x500.png">
 <link rel="canonical" href="https://scrutoscope.dev">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22><rect width=%2232%22 height=%2232%22 rx=%224%22 fill=%22%230C2A28%22/><circle cx=%228%22 cy=%2216%22 r=%223%22 fill=%22%2315B7A4%22/><circle cx=%2216%22 cy=%2216%22 r=%223%22 fill=%22%23F0A94E%22/><circle cx=%2224%22 cy=%2216%22 r=%223%22 fill=%22%2315B7A4%22/></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -567,7 +567,7 @@ const SCRUTOSCOPE_HTML = `<!DOCTYPE html>
   "applicationCategory": "DeveloperApplication",
   "operatingSystem": "WordPress",
   "url": "https://scrutoscope.dev",
-  "downloadUrl": "https://github.com/scrutineerhq/scrutinizer/releases",
+  "downloadUrl": "https://github.com/scrutineerhq/scrutoscope/releases",
   "softwareVersion": "1.2.3",
   "license": "https://www.gnu.org/licenses/gpl-2.0.html",
   "offers": {
@@ -593,7 +593,7 @@ const SCRUTOSCOPE_HTML = `<!DOCTYPE html>
       <span class="logo-text" style="font-size:1.25rem;">Scrutoscope</span>
     </a>
     <div class="nav-right">
-      <a href="https://github.com/scrutineerhq/scrutinizer" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/scrutineerhq/scrutoscope" target="_blank" rel="noopener">GitHub</a>
       <a href="https://scrutoscope.dev/view">View a Trace</a>
     </div>
   </nav>
@@ -606,8 +606,8 @@ const SCRUTOSCOPE_HTML = `<!DOCTYPE html>
       shows you where time is spent. Every hook. Every plugin. Every query.
     </p>
     <div class="cta-row">
-      <a href="https://github.com/scrutineerhq/scrutinizer/releases" class="btn btn-primary" target="_blank" rel="noopener">Download from GitHub</a>
-      <a href="https://github.com/scrutineerhq/scrutinizer" class="btn btn-secondary" target="_blank" rel="noopener">View Source</a>
+      <a href="https://github.com/scrutineerhq/scrutoscope/releases" class="btn btn-primary" target="_blank" rel="noopener">Download from GitHub</a>
+      <a href="https://github.com/scrutineerhq/scrutoscope" class="btn btn-secondary" target="_blank" rel="noopener">View Source</a>
       <a href="https://scrutoscope.dev/r/546fcfa0afddae3b7544337c41028564#pa0IKnGUwGl_InDSTgLVtZM_sLbwsxxhtCjHHx3Kz7A" class="btn btn-secondary" target="_blank" rel="noopener">See it Live</a>
     </div>
     <div class="showcase">
@@ -826,7 +826,7 @@ const SCRUTOSCOPE_HTML = `<!DOCTYPE html>
   <section class="cta-section">
     <h2>Get Scrutoscope</h2>
     <p>Download the latest release from GitHub. Upload through Plugins &gt; Add New &gt; Upload. Activate.</p>
-    <a href="https://github.com/scrutineerhq/scrutinizer/releases" class="btn btn-primary" target="_blank" rel="noopener">Download Latest Release</a>
+    <a href="https://github.com/scrutineerhq/scrutoscope/releases" class="btn btn-primary" target="_blank" rel="noopener">Download Latest Release</a>
     <div class="wp-note">Coming to wordpress.org</div>
   </section>
 
@@ -2182,7 +2182,7 @@ body {
 </div>
 
 <script nonce="{{NONCE}}">
-/* ===== shared timeline renderer (window.ScrutinizerTimeline) ===== */
+/* ===== shared timeline renderer (window.ScrutoscopeTimeline) ===== */
 {{TIMELINE_JS}}
 /* ===== viewer app ===== */
 (function() {
@@ -2233,17 +2233,17 @@ body {
     const html = document.documentElement;
     const next = html.dataset.theme === 'dark' ? 'light' : 'dark';
     html.dataset.theme = next;
-    localStorage.setItem('scrutinizer-theme', next);
+    localStorage.setItem('scrutoscope-theme', next);
     // The timeline module uses inline styles and can't follow CSS-variable
     // theme changes — re-render it in the new scheme.
     const mount = document.getElementById('panel-timeline');
-    if (mount && window.ScrutinizerTimeline && window.__scrutinizerReport) {
-      window.ScrutinizerTimeline.render(mount, window.__scrutinizerReport, { scheme: next === 'dark' ? 'dark' : 'fresh' });
+    if (mount && window.ScrutoscopeTimeline && window.__scrutoscopeReport) {
+      window.ScrutoscopeTimeline.render(mount, window.__scrutoscopeReport, { scheme: next === 'dark' ? 'dark' : 'fresh' });
     }
   }
   const themeToggleBtn = document.getElementById('theme-toggle');
   if (themeToggleBtn) themeToggleBtn.addEventListener('click', toggleTheme);
-  const savedTheme = localStorage.getItem('scrutinizer-theme');
+  const savedTheme = localStorage.getItem('scrutoscope-theme');
   if (savedTheme) document.documentElement.dataset.theme = savedTheme;
 
   // Entry point
@@ -2361,7 +2361,7 @@ body {
         }
         // If it has profile_data wrapper, unwrap it
         var data = report.profile_data ? report.profile_data : report;
-        renderReport(data, { created_at: report._scrutinizer ? report._scrutinizer.exported_at : null });
+        renderReport(data, { created_at: report._scrutoscope ? report._scrutoscope.exported_at : null });
       } catch (err) {
         console.error('Parse error:', err);
         showError('⚠️', 'Parse error', 'Could not parse this file. Make sure it is valid JSON.');
@@ -2543,7 +2543,7 @@ body {
     pluginColorMap = {};
     colorIndex = 0;
 
-    const guidanceDismissed = localStorage.getItem('scrutinizer-guidance-dismissed');
+    const guidanceDismissed = localStorage.getItem('scrutoscope-guidance-dismissed');
 
     let html = '';
 
@@ -2636,7 +2636,7 @@ body {
     // Tab panels
     // Timeline
     if (timeline.length || milestones.length) {
-      // Empty mount — rendered by the shared ScrutinizerTimeline module after
+      // Empty mount — rendered by the shared ScrutoscopeTimeline module after
       // app.innerHTML below (the same renderer the plugin dashboard uses, so
       // both viewing surfaces are identical).
       html += '<div class="tab-panel' + (tabs[0]?.id === 'timeline' ? ' active' : '') + '" id="panel-timeline"></div>';
@@ -2717,10 +2717,10 @@ body {
     // gracefully when memory_samples or other layers are absent. Stash the
     // report so the theme toggle can re-render it (the module uses inline
     // styles and can't follow CSS-variable theme changes).
-    window.__scrutinizerReport = report;
+    window.__scrutoscopeReport = report;
     var tlMount = document.getElementById('panel-timeline');
-    if (tlMount && window.ScrutinizerTimeline) {
-      window.ScrutinizerTimeline.render(tlMount, report, { scheme: document.documentElement.dataset.theme === 'dark' ? 'dark' : 'fresh' });
+    if (tlMount && window.ScrutoscopeTimeline) {
+      window.ScrutoscopeTimeline.render(tlMount, report, { scheme: document.documentElement.dataset.theme === 'dark' ? 'dark' : 'fresh' });
     }
 
     // Guidance dismiss button (avoids inline onclick quoting issues in template literal).
@@ -2729,7 +2729,7 @@ body {
       dismissBtn.addEventListener('click', function() {
         var g = document.getElementById('guidance');
         if (g) g.remove();
-        localStorage.setItem('scrutinizer-guidance-dismissed', '1');
+        localStorage.setItem('scrutoscope-guidance-dismissed', '1');
       });
     }
 
